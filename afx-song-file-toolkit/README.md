@@ -2,7 +2,7 @@
 
 ### v0.1.0
 
-- [ ] todo
+- [ ] Implement Rocksmith `.psarc` file format parser
 
 ## References & Resources
 
