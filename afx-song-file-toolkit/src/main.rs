@@ -26,6 +26,7 @@ fn as_u32_le(array: &[u8; 4]) -> u32 {
 }
 
 fn parse_psarc(path: &std::path::PathBuf) -> PsarcFile {
+    let filename = String::from(path.to_string_lossy());
     let buffer = std::fs::read(&path).unwrap();
 
     let identifier = std::str::from_utf8(&buffer[0..4]).unwrap();
@@ -38,6 +39,7 @@ fn parse_psarc(path: &std::path::PathBuf) -> PsarcFile {
     let block_size = as_u32_be(&buffer[24..28].try_into().unwrap());;
     let archive_flags = as_u32_be(&buffer[28..32].try_into().unwrap());;
 
+    println!("Filename: {:?}", filename);
     println!("Identifier: {:?}", identifier);
     println!("Version: {}", version);
     println!("Compression: {:?}", compression);
