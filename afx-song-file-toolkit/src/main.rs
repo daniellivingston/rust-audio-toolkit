@@ -5,6 +5,16 @@ struct Cli {
     path: std::path::PathBuf,
 }
 
+// https://www.psdevwiki.com/ps3/PlayStation_archive_(PSARC)
+// https://github.com/GaticusHax/libPSARC/blob/development/libPSARC-Static/Source/PSARC/Header.cs
+// https://docs.rs/binrw/latest/binrw/
+// https://jam1.re/blog/binread-a-declarative-rust-binary-parsing-library
+#[derive(BinRead, Debug)]
+#[br(little, magic = b"PSARC")]
+struct PsarcHeader {
+
+}
+
 struct PsarcFile {
     filename: String,
 }
