@@ -10,7 +10,21 @@ struct Cli {
 }
 
 #[derive(BinRead, Debug)]
-struct Version(u16, u16);
+struct Version {
+    major: u16,
+    minor: u16
+}
+
+#[derive(BinRead, Debug)]
+#[allow(dead_code)]
+struct TocTable {
+    md5_hash: u128,
+    block_offset: u32,
+    #[br(count = 5)]
+    uncompressed_size: Vec<u8>,
+    #[br(count = 5)]
+    file_offset: Vec<u8>
+}
 
 // https://www.psdevwiki.com/ps3/PlayStation_archive_(PSARC)
 // https://github.com/GaticusHax/libPSARC/blob/development/libPSARC-Static/Source/PSARC/Header.cs
@@ -21,13 +35,17 @@ struct Version(u16, u16);
 #[allow(dead_code)]
 struct PsarcHeader {
     version: Version,
-    #[br(count = 4)]
-    compression: Vec<u8>,
+
+    #[br(count = 4, map = |bytes: Vec<u8>| String::from_utf8_lossy(&bytes).into_owned())]
+    compression_type: String,
+
     toc_length: u32,
     toc_entry_size: u32,
     toc_entries: u32,
     block_size: u32,
-    archive_flags: u32
+    archive_flags: u32,
+
+    toc_table: TocTable
 }
 
 fn parse_psarc(path: &std::path::PathBuf) -> PsarcHeader {
@@ -41,9 +59,6 @@ fn parse_psarc(path: &std::path::PathBuf) -> PsarcHeader {
     println!("{:?}", header);
 
     let header = header.unwrap();
-
-    let compression = String::from_utf8_lossy(&header.compression);
-    println!("Compression: {:?}", compression);
 
     return header;
 }
