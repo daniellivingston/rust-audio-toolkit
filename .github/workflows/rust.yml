@@ -3,6 +3,8 @@ on: [push, pull_request]
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_LOG: debug
+  RUST_BACKTRACE: 1
 
 jobs:
   test-crate1:
