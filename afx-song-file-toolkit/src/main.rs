@@ -18,6 +18,7 @@ struct Version(u16, u16);
 // https://jam1.re/blog/binread-a-declarative-rust-binary-parsing-library
 #[derive(BinRead, Debug)]
 #[br(big, magic = b"PSAR")]
+#[allow(dead_code)]
 struct PsarcHeader {
     version: Version,
     #[br(count = 4)]
@@ -29,27 +30,7 @@ struct PsarcHeader {
     archive_flags: u32
 }
 
-struct PsarcFile {
-    filename: String,
-}
-
-// Read a 4 byte unsigned integer in big endian format
-fn as_u32_be(array: &[u8; 4]) -> u32 {
-    ((array[0] as u32) << 24) +
-    ((array[1] as u32) << 16) +
-    ((array[2] as u32) <<  8) +
-    ((array[3] as u32) <<  0)
-}
-
-// Read a 4 byte unsigned integer in little endian format
-fn as_u32_le(array: &[u8; 4]) -> u32 {
-    ((array[0] as u32) <<  0) +
-    ((array[1] as u32) <<  8) +
-    ((array[2] as u32) << 16) +
-    ((array[3] as u32) << 24)
-}
-
-fn parse_psarc(path: &std::path::PathBuf) -> PsarcFile {
+fn parse_psarc(path: &std::path::PathBuf) -> PsarcHeader {
     let filename = String::from(path.to_string_lossy());
     println!("Filename: {:?}", filename);
 
@@ -64,9 +45,7 @@ fn parse_psarc(path: &std::path::PathBuf) -> PsarcFile {
     let compression = String::from_utf8_lossy(&header.compression);
     println!("Compression: {:?}", compression);
 
-    PsarcFile {
-        filename: String::from(path.to_string_lossy())
-    }
+    return header;
 }
 
 fn main() -> std::io::Result<()> {
