@@ -3,7 +3,7 @@
 ### v0.1.0
 
 - [ ] Implement Rocksmith `.psarc` file format parser
-  - [ ] Read PSARC header
+  - [x] Read PSARC header
   - [ ] Implement stream decryption
   - [ ] Convert parser to act on file bufstream
 
