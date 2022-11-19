@@ -10,6 +10,7 @@ struct Cli {
 }
 
 #[derive(BinRead, Debug)]
+#[allow(dead_code)]
 struct Version {
     major: u16,
     minor: u16
@@ -30,7 +31,7 @@ struct TocTable {
 // https://github.com/GaticusHax/libPSARC/blob/development/libPSARC-Static/Source/PSARC/Header.cs
 // https://docs.rs/binrw/latest/binrw/
 // https://jam1.re/blog/binread-a-declarative-rust-binary-parsing-library
-#[derive(BinRead, Debug)]
+            #[derive(BinRead, Debug)]
 #[br(big, magic = b"PSAR")]
 #[allow(dead_code)]
 struct PsarcHeader {
@@ -48,6 +49,50 @@ struct PsarcHeader {
     toc_table: TocTable
 }
 
+fn test(bytes: &Vec<u8>, little_endian: bool) -> u64 {
+    match little_endian {
+        true => {
+            (bytes[0] as u64)
+          | (bytes[1] as u64) << 8
+          | (bytes[2] as u64) << 16
+          | (bytes[3] as u64) << 24
+          | (bytes[4] as u64) << 32
+        }
+        false => {
+            (bytes[0] as u64) << 32
+          | (bytes[1] as u64) << 24
+          | (bytes[2] as u64) << 16
+          | (bytes[3] as u64) << 8
+          | (bytes[4] as u64)
+        }
+    }
+}
+
+fn test_results(header: &PsarcHeader) {
+    /*
+    (b'PSAR', 65540, b'zlib', 856, 30, 21, 65536, 4)
+
+    MAGIC       = "PSAR" = header[0]
+    VERSION     = 65540  = header[1]
+    COMPRESSION = "zlib" = header[2]
+    toc_size    = 824    = header[3] - 32
+    BLOCK_SIZE  = 65536  = header[4]
+    n_entries   = 21     = header[5]
+    */
+
+    println!("Version: {}.{}", header.version.major, header.version.minor);
+    println!("Compression Type: {}", header.compression_type);
+    println!("TOC Length: {}", header.toc_length);
+    println!("TOC Entry Size: {}", header.toc_entry_size);
+    println!("TOC Entries: {}", header.toc_entries);
+    println!("Block Size: {}", header.block_size);
+    println!("Archive Flags: {}", header.archive_flags);
+    println!("TOC Table MD5 Hash: {}", header.toc_table.md5_hash);
+    println!("TOC Table Block Offset: {}", header.toc_table.block_offset);
+    println!("TOC Table Uncompressed Size: {:?}", header.toc_table.uncompressed_size);
+    println!("TOC Table File Offset: {:?}", header.toc_table.file_offset);
+}
+
 fn parse_psarc(path: &std::path::PathBuf) -> PsarcHeader {
     let filename = String::from(path.to_string_lossy());
     println!("Filename: {:?}", filename);
@@ -59,6 +104,9 @@ fn parse_psarc(path: &std::path::PathBuf) -> PsarcHeader {
     println!("{:?}", header);
 
     let header = header.unwrap();
+    println!("block offset = {:?}", header.toc_table.block_offset);
+    println!("uncompressed size = {:?}", test(&header.toc_table.uncompressed_size, true));
+    println!("file offset = {:?}", test(&header.toc_table.file_offset, true));
 
     return header;
 }
