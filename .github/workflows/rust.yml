@@ -7,17 +7,10 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  test-crate1:
-    name: cargo test realtime-audio-rs
+  test:
+    name: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo run --bin realtime-audio-rs
-  test-crate2:
-    name: cargo test afx-song-file-toolkit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo run --bin afx-song-file-toolkit
+      - run: cargo build --workspace
