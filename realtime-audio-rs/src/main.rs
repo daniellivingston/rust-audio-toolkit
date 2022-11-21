@@ -37,6 +37,27 @@ fn microphone_sample_demo() {
     println!("  - Host:   '{}'", host.id().name());
     println!("  - Input:  '{}'", input_device.name().unwrap());
     println!("  - Output: '{}'", output_device.name().unwrap());
+
+    let config = input_device
+        .default_input_config()
+        .expect("failed to get default input config");
+
+    println!("Default input config: {:?}", config);
+
+    let err_fn = move |err| {
+        eprintln!("an error occurred on stream: {}", err);
+    };
+
+    let stream = match config.sample_format() {
+        cpal::SampleFormat::F32 => input_device.build_input_stream(
+            &config.into(),
+            move |data, _: &_| { println!("{:?}", data); },
+            err_fn,
+        ),
+        sample_format => {
+            panic!("Unsupported sample format: {:?}", sample_format);
+        }
+    };
 }
 
 fn main() {

@@ -4,6 +4,12 @@ use binrw::BinRead;
 use std::fs::File;
 use std::io::BufReader;
 
+use aes::cipher::{AsyncStreamCipher, KeyIvInit};
+use hex_literal::hex;
+
+// https://github.com/RustCrypto/block-modes/blob/master/cfb-mode/Cargo.toml
+type Aes128CfbDec = cfb_mode::Decryptor<aes::Aes128>;
+
 #[derive(Parser)]
 struct Cli {
     path: std::path::PathBuf,
@@ -63,6 +69,12 @@ struct PsarcHeader {
     archive_flags: u32,
 
     toc_table: TocTable
+}
+
+fn aes_cfb() {
+    let key = 0x12;
+    let iv  = 0x12;
+    Aes128CfbDec::new(&key.into(), &iv.into()).decrypt(&mut buf)
 }
 
 fn test_results(header: &PsarcHeader) {
