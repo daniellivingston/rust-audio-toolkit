@@ -2,12 +2,13 @@ use clap::Parser;
 use binrw::BinRead;
 
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{Read, BufReader};
 
 use hex_literal::hex;
 use aes::Aes256;
 use cfb_mode::Decryptor;
 use aes::cipher::{AsyncStreamCipher, KeyIvInit};
+use binrw::io::Cursor;
 
 static ARC_KEY: [u8; 32] = [0xC5, 0x3D, 0xB2, 0x38, 0x70, 0xA1, 0xA2, 0xF7, 0x1C, 0xAE, 0x64, 0x06, 0x1F, 0xDD, 0x0E, 0x11, 0x57, 0x30, 0x9D, 0xC8, 0x52, 0x04, 0xD4, 0xC5, 0xBF, 0xDF, 0x25, 0x09, 0x0D, 0xF2, 0x57, 0x2C];
 static ARC_IV:  [u8; 16] = [0xE9, 0x15, 0xAA, 0x01, 0x8F, 0xEF, 0x71, 0xFC, 0x50, 0x81, 0x32, 0xE4, 0xBB, 0x4C, 0xEB, 0x42];
@@ -20,9 +21,9 @@ struct Cli {
     path: std::path::PathBuf,
 }
 
-fn parse_toc(bytes: &Vec<u8>) -> &Vec<u8>  {
+fn parse_toc(bytes: &mut Vec<u8>) -> &Vec<u8>  {
     let decryptor: Decryptor<Aes256> = Decryptor::new_from_slices(&ARC_KEY, &ARC_IV).expect("Invalid key or iv length");
-    decryptor.decrypt(&mut bytes);
+    decryptor.decrypt(bytes);
     bytes
 }
 
@@ -53,6 +54,7 @@ struct Version {
 }
 
 #[derive(BinRead, Debug)]
+#[br(big)]
 #[allow(dead_code)]
 struct TocTable {
     md5_hash: u128,
@@ -78,9 +80,6 @@ struct PsarcHeader {
     toc_entries: u32,
     block_size: u32,
     archive_flags: u32,
-
-    #[br(count = toc_length as usize, map = |bytes: Vec<u8>| parse_toc(&bytes))]
-    toc_table: TocTable
 }
 
 fn test_results(header: &PsarcHeader) {
@@ -92,12 +91,6 @@ fn test_results(header: &PsarcHeader) {
     println!("Block Size: {} == 65536", header.block_size);
     println!("Archive Flags: {} == 4", header.archive_flags);
 
-    // toc table: should be an iterable
-    // all data below here is corrupted and must be uncompressed
-    println!("TOC Table MD5 Hash: {}", header.toc_table.md5_hash);
-    println!("TOC Table Block Offset: {}", header.toc_table.block_offset);
-    println!("TOC Table Uncompressed Size: {:?}", header.toc_table.uncompressed_size);
-    println!("TOC Table File Offset: {:?}", header.toc_table.file_offset);
 }
 
 fn pad_zeroes<const A: usize, const B: usize>(arr: [u8; A]) -> [u8; B] {
@@ -131,6 +124,24 @@ fn parse_psarc(path: &std::path::PathBuf) -> PsarcHeader {
     let header = PsarcHeader::read(&mut reader).unwrap();
     println!("{:?}", header);
     test_results(&header);
+
+    let mut toc_bytes: Vec<u8> = vec![];
+    let mut chunk = reader.take(header.toc_length as u64);
+    let n = chunk.read_to_end(&mut toc_bytes).expect("Didn't read enough");
+
+    assert_eq!(n, header.toc_length as usize);
+
+    let x = parse_toc(&mut toc_bytes);
+
+    let mut buff: Cursor<Vec<u8>> = Cursor::new(toc_bytes);
+    let toc_table = TocTable::read(&mut buff).unwrap();
+
+    // toc table: should be an iterable
+    // all data below here is corrupted and must be uncompressed
+    println!("TOC Table MD5 Hash: {}", toc_table.md5_hash);
+    println!("TOC Table Block Offset: {}", toc_table.block_offset);
+    println!("TOC Table Uncompressed Size: {:?}", toc_table.uncompressed_size);
+    println!("TOC Table File Offset: {:?}", toc_table.file_offset);
 
     return header;
 }
