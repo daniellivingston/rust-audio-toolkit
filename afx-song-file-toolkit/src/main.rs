@@ -4,13 +4,26 @@ use binrw::BinRead;
 use std::fs::File;
 use std::io::BufReader;
 
-// use aes::cipher::{AsyncStreamCipher, KeyIvInit};
-// https://github.com/RustCrypto/block-modes/blob/master/cfb-mode/Cargo.toml
-// type Aes128CfbDec = cfb_mode::Decryptor<aes::Aes128>;
+use hex_literal::hex;
+use aes::Aes256;
+use cfb_mode::Decryptor;
+use aes::cipher::{AsyncStreamCipher, KeyIvInit};
+
+static ARC_KEY: [u8; 32] = [0xC5, 0x3D, 0xB2, 0x38, 0x70, 0xA1, 0xA2, 0xF7, 0x1C, 0xAE, 0x64, 0x06, 0x1F, 0xDD, 0x0E, 0x11, 0x57, 0x30, 0x9D, 0xC8, 0x52, 0x04, 0xD4, 0xC5, 0xBF, 0xDF, 0x25, 0x09, 0x0D, 0xF2, 0x57, 0x2C];
+static ARC_IV:  [u8; 16] = [0xE9, 0x15, 0xAA, 0x01, 0x8F, 0xEF, 0x71, 0xFC, 0x50, 0x81, 0x32, 0xE4, 0xBB, 0x4C, 0xEB, 0x42];
+
+//let MAC_KEY = 0x9821330E34B91F70D0A48CBD625993126970CEA09192C0E6CDA676CC9838289D;
+//let WIN_KEY = 0xCB648DF3D12A16BF71701414E69619EC171CCA5D2A142E3E59DE7ADDA18A3A30;
 
 #[derive(Parser)]
 struct Cli {
     path: std::path::PathBuf,
+}
+
+fn parse_toc(bytes: &Vec<u8>) -> &Vec<u8>  {
+    let decryptor: Decryptor<Aes256> = Decryptor::new_from_slices(&ARC_KEY, &ARC_IV).expect("Invalid key or iv length");
+    decryptor.decrypt(&mut bytes);
+    bytes
 }
 
 fn test(bytes: &Vec<u8>, little_endian: bool) -> u64 {
@@ -66,13 +79,8 @@ struct PsarcHeader {
     block_size: u32,
     archive_flags: u32,
 
+    #[br(count = toc_length as usize, map = |bytes: Vec<u8>| parse_toc(&bytes))]
     toc_table: TocTable
-}
-
-fn aes_cfb() {
-    let key = 0x12;
-    let iv  = 0x12;
-    // Aes128CfbDec::new(&key.into(), &iv.into()).decrypt(&mut buf)
 }
 
 fn test_results(header: &PsarcHeader) {
@@ -100,29 +108,14 @@ fn pad_zeroes<const A: usize, const B: usize>(arr: [u8; A]) -> [u8; B] {
 }
 
 fn test_aes(buf: &mut Vec<u8>) {
-    use hex_literal::hex;
-    use aes::Aes128;
-    use aes::cipher::KeyIvInit;
-    use aes::cipher::AsyncStreamCipher;
-    use cfb_mode::Decryptor;
-
-    type Aes128CfbDec = Decryptor<Aes128>;
-
-    let key = hex!("C53DB23870A1A2F71CAE64061FDD0E1157309DC85204D4C5BFDF25090DF2572C");
-    let iv = hex!("E915AA018FEF71FC508132E4BB4CEB42");
-
-    // let key = [0x42; 16];
-    // let iv = [0x24; 16];
-
-    Aes128CfbDec::new(&key.into(), &iv.into()).decrypt(&mut buf);
     // cipher_toc = AES.new(
     //   codecs.decode(ARC_KEY,'hex'),  # secret key (16 bytes)
     //   mode=AES.MODE_CFB,             # MODE_{EAX,CBC,CFB,OFB,OPENPGP}
     //   IV=codecs.decode(ARC_IV,'hex'),# initialization vector (16 bytes)
-    //   segment_size=128)              # The number of bits the plaintext and 
-    //                                  # ciphertext are segmented in. 
+    //   segment_size=128)              # The number of bits the plaintext and
+    //                                  # ciphertext are segmented in.
     //                                  # It must be a multiple of 8.
-    //
+
     // let data = reader.read_bytes(toc_size);
     // let data = data.pad();
     // let decryption = cipher_toc.decrypt(&data);
@@ -138,7 +131,7 @@ fn parse_psarc(path: &std::path::PathBuf) -> PsarcHeader {
     let header = PsarcHeader::read(&mut reader).unwrap();
     println!("{:?}", header);
     test_results(&header);
-    //test_aes(&mut reader);
+
     return header;
 }
 

@@ -227,8 +227,15 @@ def create_entry(name, data):
 
 def cipher_toc():
     """AES CFB Mode"""
-    return AES.new(codecs.decode(ARC_KEY,'hex'), mode=AES.MODE_CFB,
-                   IV=codecs.decode(ARC_IV,'hex'), segment_size=128)
+    arc_key_decoded = codecs.decode(ARC_KEY, 'hex')
+    arc_iv_decoded = codecs.decode(ARC_IV, 'hex')
+
+    return AES.new(
+        codecs.decode(ARC_KEY,'hex'),
+        mode=AES.MODE_CFB,
+        IV=codecs.decode(ARC_IV,'hex'),
+        segment_size=128
+    )
 
 
 def read_toc(filestream):
