@@ -4,8 +4,13 @@
 
 - [ ] Implement Rocksmith `.psarc` file format parser
   - [x] Read PSARC header
-  - [ ] Implement stream decryption
-  - [ ] Convert parser to act on file bufstream
+  - [ ] Read PSARC TOC Table
+    - [x] Implement AES-CFB decryption
+    - [x] Handle decrypted bytes -> ToC Table
+    - [ ] Validate decryption data integrity
+  - [ ] Read manifest file
+    - [ ] Implement a `read_entry` function like the Python script has
+    - [ ] Bring in ZLIB and connect it to `BufReader`
 
 ## References & Resources
 
