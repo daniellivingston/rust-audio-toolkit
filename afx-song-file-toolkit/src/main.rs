@@ -21,13 +21,14 @@ struct Cli {
     path: std::path::PathBuf,
 }
 
-fn parse_toc(bytes: &mut Vec<u8>) -> &Vec<u8>  {
-    let decryptor: Decryptor<Aes256> = Decryptor::new_from_slices(&ARC_KEY, &ARC_IV).expect("Invalid key or iv length");
-    decryptor.decrypt(bytes);
-    bytes
+fn pad_zeroes<const A: usize, const B: usize>(arr: [u8; A]) -> [u8; B] {
+    assert!(B >= A); //just for a nicer error message, adding #[track_caller] to the function may also be desirable
+    let mut b = [0; B];
+    b[..A].copy_from_slice(&arr);
+    b
 }
 
-fn test(bytes: &Vec<u8>, little_endian: bool) -> u64 {
+fn u40_from_vec(bytes: &Vec<u8>, little_endian: bool) -> u64 {
     match little_endian {
         true => {
             (bytes[0] as u64)
@@ -59,9 +60,9 @@ struct Version {
 struct TocTable {
     md5_hash: u128,
     block_offset: u32,
-    #[br(count = 5, map = |bytes: Vec<u8>| test(&bytes, false))]
+    #[br(count = 5, map = |bytes: Vec<u8>| u40_from_vec(&bytes, false))]
     uncompressed_size: u64,
-    #[br(count = 5, map = |bytes: Vec<u8>| test(&bytes, false))]
+    #[br(count = 5, map = |bytes: Vec<u8>| u40_from_vec(&bytes, false))]
     file_offset: u64
 }
 
@@ -82,68 +83,58 @@ struct PsarcHeader {
     archive_flags: u32,
 }
 
-fn test_results(header: &PsarcHeader) {
-    println!("Version: {}.{} == 65540", header.version.major, header.version.minor);
-    println!("Compression Type: {} == 'zlib'", header.compression_type);
-    println!("TOC Length: {} == 824 (856)", header.toc_length);
-    println!("TOC Entry Size: {} == 30", header.toc_entry_size);
-    println!("TOC Entries: {} == 21", header.toc_entries);
-    println!("Block Size: {} == 65536", header.block_size);
-    println!("Archive Flags: {} == 4", header.archive_flags);
-
+#[derive(Debug)]
+#[allow(dead_code)]
+struct PlaystationArchive {
+    header: PsarcHeader,
+    toc: Vec<TocTable>
 }
 
-fn pad_zeroes<const A: usize, const B: usize>(arr: [u8; A]) -> [u8; B] {
-    assert!(B >= A); //just for a nicer error message, adding #[track_caller] to the function may also be desirable
-    let mut b = [0; B];
-    b[..A].copy_from_slice(&arr);
-    b
+impl TocTable {
+    pub fn from_bytes(bytes: Vec<u8>) -> TocTable {
+        let mut bytes = bytes.clone();
+
+        Decryptor::<Aes256>::new_from_slices(&ARC_KEY, &ARC_IV)
+                           .expect("Invalid key or iv length")
+                           .decrypt(&mut bytes);
+
+        let mut buff: Cursor<Vec<u8>> = Cursor::new(bytes);
+
+        TocTable::read(&mut buff).unwrap()
+    }
 }
 
-fn test_aes(buf: &mut Vec<u8>) {
-    // cipher_toc = AES.new(
-    //   codecs.decode(ARC_KEY,'hex'),  # secret key (16 bytes)
-    //   mode=AES.MODE_CFB,             # MODE_{EAX,CBC,CFB,OFB,OPENPGP}
-    //   IV=codecs.decode(ARC_IV,'hex'),# initialization vector (16 bytes)
-    //   segment_size=128)              # The number of bits the plaintext and
-    //                                  # ciphertext are segmented in.
-    //                                  # It must be a multiple of 8.
+impl PlaystationArchive {
+    pub fn read(path: &std::path::Path) -> Self {
+        let f = File::open(&path).expect("Failed to open file");
+        let mut reader = BufReader::new(f);
 
-    // let data = reader.read_bytes(toc_size);
-    // let data = data.pad();
-    // let decryption = cipher_toc.decrypt(&data);
-}
+        let header = PsarcHeader::read(&mut reader).expect("Failed to read PSARC header");
 
-fn parse_psarc(path: &std::path::PathBuf) -> PsarcHeader {
-    let filename = String::from(path.to_string_lossy());
-    println!("Filename: {:?}", filename);
+        let mut toc = Vec::<TocTable>::new();
 
-    let f = File::open(&path).unwrap();
-    let mut reader = BufReader::new(f);
+        let chunk_size = header.toc_length as u64;
+        let num_chunks = header.toc_entries as u64;
+        let mut bytes: Vec<u8> = vec![];
 
-    let header = PsarcHeader::read(&mut reader).unwrap();
-    println!("{:?}", header);
-    test_results(&header);
+        reader
+            .take(chunk_size * num_chunks)
+            .read_to_end(&mut bytes)
+            .expect("Failed to read file");
 
-    let mut toc_bytes: Vec<u8> = vec![];
-    let mut chunk = reader.take(header.toc_length as u64);
-    let n = chunk.read_to_end(&mut toc_bytes).expect("Didn't read enough");
+        for i in 0..num_chunks {
+            let x0 = (i * chunk_size) as usize;
+            let x1 = ((i + 1) * chunk_size) as usize;
 
-    assert_eq!(n, header.toc_length as usize);
+            let table = TocTable::from_bytes(bytes[x0..x1].to_vec());
+            toc.push(table);
+        }
 
-    let x = parse_toc(&mut toc_bytes);
-
-    let mut buff: Cursor<Vec<u8>> = Cursor::new(toc_bytes);
-    let toc_table = TocTable::read(&mut buff).unwrap();
-
-    // toc table: should be an iterable
-    // all data below here is corrupted and must be uncompressed
-    println!("TOC Table MD5 Hash: {}", toc_table.md5_hash);
-    println!("TOC Table Block Offset: {}", toc_table.block_offset);
-    println!("TOC Table Uncompressed Size: {:?}", toc_table.uncompressed_size);
-    println!("TOC Table File Offset: {:?}", toc_table.file_offset);
-
-    return header;
+        PlaystationArchive {
+            header,
+            toc
+        }
+    }
 }
 
 fn main() -> std::io::Result<()> {
@@ -156,7 +147,10 @@ fn main() -> std::io::Result<()> {
         "karmapolice_m.psarc"
     ].map(|x| path.push(x));
 
-    let _ = parse_psarc(&path);
+    println!("Reading PSARC file: {:?}", path);
+
+    let psarc = PlaystationArchive::read(&path);
+    println!("{:?}", psarc);
 
     Ok(())
 }
