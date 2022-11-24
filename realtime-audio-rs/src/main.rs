@@ -1,4 +1,4 @@
-use cpal::traits::{HostTrait, DeviceTrait};
+use cpal::traits::{HostTrait, DeviceTrait, StreamTrait};
 use cpal::platform::HostId;
 
 fn system_overview() {
@@ -44,6 +44,15 @@ fn microphone_sample_demo() {
 
     println!("Default input config: {:?}", config);
 
+    // https://github.com/RustAudio/cpal/blob/master/examples/beep.rs#L98
+    let output_config = output_device.default_output_config().unwrap();
+    // TODO: continue output config setup here
+    /////////////////////////////////////////////////////////////////////
+
+    let data_fn = move |data: &[f32], _: &cpal::InputCallbackInfo| {
+        println!("Data: {:?}", data);
+    };
+
     let err_fn = move |err| {
         eprintln!("an error occurred on stream: {}", err);
     };
@@ -51,13 +60,20 @@ fn microphone_sample_demo() {
     let stream = match config.sample_format() {
         cpal::SampleFormat::F32 => input_device.build_input_stream(
             &config.into(),
-            move |data, _: &_| { println!("{:?}", data); },
+            data_fn,
             err_fn,
-        ),
+        ).expect("failed to build input stream"),
         sample_format => {
             panic!("Unsupported sample format: {:?}", sample_format);
         }
     };
+
+    stream.play().unwrap();
+
+    std::thread::sleep(std::time::Duration::from_secs(3));
+    drop(stream);
+    println!("Finished recording");
+
 }
 
 fn main() {
