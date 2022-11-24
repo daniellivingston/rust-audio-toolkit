@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Sample,
@@ -53,6 +55,7 @@ fn microphone_sample_demo() {
 
     let data_fn = move |data: &[f32], _: &cpal::InputCallbackInfo| {
         print!(".");
+        std::io::stdout().flush().unwrap();
         &input_data.append(&mut data.to_owned());
     };
 
@@ -79,7 +82,6 @@ fn microphone_sample_demo() {
     std::thread::sleep(std::time::Duration::from_secs(record_duration));
     drop(stream);
     println!("Finished recording");
-    // println!("Input data: {:?}", input_data);
 
     /////////////////////////////////////////////////////////////////////
     println!("Playing audio.");
@@ -115,7 +117,6 @@ pub fn run(device: &cpal::Device, config: &cpal::StreamConfig)
                     *sample = value;
                 }
             }
-            //write_data(data, channels, &mut next_value)
         },
         err_fn,
     ).unwrap();
@@ -124,16 +125,6 @@ pub fn run(device: &cpal::Device, config: &cpal::StreamConfig)
     std::thread::sleep(std::time::Duration::from_millis(3000));
 
 }
-
-// fn write_data(output: &mut [f32], channels: usize, next_sample: &mut dyn FnMut() -> f32)
-// {
-//     for frame in output.chunks_mut(channels) {
-//         let value: T = T::from_sample(next_sample());
-//         for sample in frame.iter_mut() {
-//             *sample = value;
-//         }
-//     }
-// }
 
 fn main() {
     println!("\n\nDEVICE & DRIVER OVERVIEW\n");
