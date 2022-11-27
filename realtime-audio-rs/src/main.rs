@@ -4,6 +4,20 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 
+pub struct Audio {
+    raw_data: Vec<f32>,
+    duration: std::time::Duration
+}
+
+impl Audio {
+    pub fn new(data: Vec<f32>, duration: std::time::Duration) -> Audio {
+        Audio {
+            raw_data: data,
+            duration: duration
+        }
+    }
+}
+
 fn system_overview() {
     let hosts: Vec<HostId> = cpal::platform::available_hosts();
     println!("Available hosts (count = {}):", hosts.len());
@@ -27,7 +41,7 @@ fn system_overview() {
     }
 }
 
-fn capture_input(duration: std::time::Duration) -> Result<Vec<f32>, anyhow::Error> {
+fn capture_input(duration: std::time::Duration) -> Result<Audio, anyhow::Error> {
     let device = cpal::default_host()
         .default_input_device()
         .expect("no input device available");
@@ -79,10 +93,10 @@ fn capture_input(duration: std::time::Duration) -> Result<Vec<f32>, anyhow::Erro
         .take()
         .expect("Could not reclaim mutex on recording buffer");
 
-    Ok(buffer)
+    Ok(Audio::new(buffer, duration))
 }
 
-fn play_buffer(buffer: Vec<f32>) -> Result<(), anyhow::Error> {
+fn play_buffer(audio: Audio) -> Result<(), anyhow::Error> {
     let device = cpal::default_host()
         .default_output_device()
         .expect("no output device available");
@@ -93,23 +107,20 @@ fn play_buffer(buffer: Vec<f32>) -> Result<(), anyhow::Error> {
         .expect("failed to get default output config");
     println!("Default output config: {:?}", config);
 
-    let cell = std::cell::RefCell::new(buffer.clone());
-
-    let c = cell.clone();
-    let data_fn = move |data: &mut [f32]| {
-        for sample in data {
-            *sample = match c.borrow_mut().pop() {
-                Some(s) => s,
-                None => 0.0
-            }
-        }
+    let mut data = audio.raw_data.clone().into_iter();
+    let mut next_value = move || {
+        let sample = data.next().unwrap_or(0f32);
+        print!("{sample} ");
+        //let sample = sample / sample_rate;
+        sample
     };
 
     let stream = match config.sample_format() {
         cpal::SampleFormat::F32 => device.build_output_stream(
             &config.into(),
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                data_fn(data);
+                data.iter_mut()
+                    .for_each(|d| *d = next_value())
             },
             move |err| eprintln!("an error occurred on stream: {}", err),
         )?,
@@ -119,7 +130,7 @@ fn play_buffer(buffer: Vec<f32>) -> Result<(), anyhow::Error> {
     };
     stream.play()?;
 
-    std::thread::sleep(std::time::Duration::from_secs(1));
+    std::thread::sleep(audio.duration);
     drop(stream);
 
     Ok(())
@@ -129,11 +140,12 @@ fn main() -> Result<(), anyhow::Error> {
     println!("\n\nDEVICE & DRIVER OVERVIEW\n");
     system_overview();
 
-    let input_data = capture_input(std::time::Duration::from_secs(3))?;
-    println!("Captured: {:?}", input_data.len());
+    let capture_duration = std::time::Duration::from_secs(3);
+    let captured = capture_input(capture_duration)?;
+    println!("Captured: {:?}", captured.raw_data.len());
 
     println!("Playing back...");
-    play_buffer(input_data)?;
+    play_buffer(captured)?;
     println!("Finished playback.");
 
     Ok(())
