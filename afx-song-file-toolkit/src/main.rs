@@ -4,7 +4,6 @@ use binrw::BinRead;
 use std::fs::File;
 use std::io::{Read, BufReader};
 
-use hex_literal::hex;
 use aes::Aes256;
 use cfb_mode::Decryptor;
 use aes::cipher::{AsyncStreamCipher, KeyIvInit};

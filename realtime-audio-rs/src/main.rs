@@ -4,16 +4,25 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 
+#[allow(unused)]
+#[derive(Debug)]
 pub struct Audio {
     raw_data: Vec<f32>,
-    duration: std::time::Duration
+    duration: std::time::Duration,
+    sample_rate: cpal::SampleRate,
+    channels: cpal::ChannelCount
 }
 
 impl Audio {
-    pub fn new(data: Vec<f32>, duration: std::time::Duration) -> Audio {
+    pub fn new(data: Vec<f32>,
+               duration: std::time::Duration,
+               sample_rate: cpal::SampleRate,
+               channels: cpal::ChannelCount) -> Audio {
         Audio {
             raw_data: data,
-            duration: duration
+            duration: duration,
+            sample_rate: sample_rate,
+            channels: channels
         }
     }
 }
@@ -57,6 +66,9 @@ fn capture_input(duration: std::time::Duration) -> Result<Audio, anyhow::Error> 
 
     println!("Begin recording...");
 
+    let sample_rate = config.sample_rate();
+    let channels = config.channels();
+
     type ArcLockedVec = Arc<Mutex<Option<Vec<f32>>>>;
     let data_fn = move |data: &[f32], buffer: &ArcLockedVec| {
         if let Ok(mut guard) = buffer.try_lock() {
@@ -93,7 +105,7 @@ fn capture_input(duration: std::time::Duration) -> Result<Audio, anyhow::Error> 
         .take()
         .expect("Could not reclaim mutex on recording buffer");
 
-    Ok(Audio::new(buffer, duration))
+    Ok(Audio::new(buffer, duration, sample_rate, channels))
 }
 
 fn play_buffer(audio: Audio) -> Result<(), anyhow::Error> {
@@ -107,12 +119,21 @@ fn play_buffer(audio: Audio) -> Result<(), anyhow::Error> {
         .expect("failed to get default output config");
     println!("Default output config: {:?}", config);
 
+    // TODO: these complications come from trying to translate one channel (microphone)
+    // into two (stereo speakers).
+    // Here, we are artificially interleaving the mono channel twice to mimic stereo.
     let mut data = audio.raw_data.clone().into_iter();
-    let mut next_value = move || {
-        let sample = data.next().unwrap_or(0f32);
-        print!("{sample} ");
-        //let sample = sample / sample_rate;
-        sample
+    let mut flag = false;
+    let mut last = 0f32;
+    let mut next_value = move || -> f32 {
+        flag = !flag;
+        if flag {
+            last = data.next().unwrap_or(0f32);
+            last
+        }
+        else {
+            last
+        }
     };
 
     let stream = match config.sample_format() {
