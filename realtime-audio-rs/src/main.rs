@@ -1,12 +1,8 @@
-use std::io::Write;
-
+use std::sync::{Arc, Mutex};
 use cpal::{
+    platform::HostId,
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    Sample,
 };
-use cpal::platform::HostId;
-
-// microphone -> speakers example: https://github.com/RustAudio/cpal/blob/master/examples/feedback.rs
 
 fn system_overview() {
     let hosts: Vec<HostId> = cpal::platform::available_hosts();
@@ -31,105 +27,68 @@ fn system_overview() {
     }
 }
 
-fn microphone_sample_demo() {
-    let host = cpal::default_host();
+fn capture_input(duration: std::time::Duration) -> Result<Vec<f32>, anyhow::Error> {
+    let device = cpal::default_host()
+        .default_input_device()
+        .expect("no input device available");
+    println!("Input device: {}", device.name()?);
 
-    let output_device = host.default_output_device()
-                            .expect("no output device available");
-
-    let input_device = host.default_input_device()
-                            .expect("no input device available");
-
-    println!("Demo configuration:");
-    println!("  - Host:   '{}'", host.id().name());
-    println!("  - Input:  '{}'", input_device.name().unwrap());
-    println!("  - Output: '{}'", output_device.name().unwrap());
-
-    let config = input_device
+    let config = device
         .default_input_config()
         .expect("failed to get default input config");
-
     println!("Default input config: {:?}", config);
 
-    let mut input_data: Vec<f32> = Vec::new();
+    let buffer: Vec<f32> = vec![];
+    let buffer = Arc::new(Mutex::new(Some(buffer)));
 
-    let data_fn = move |data: &[f32], _: &cpal::InputCallbackInfo| {
-        print!(".");
-        std::io::stdout().flush().unwrap();
-        &input_data.append(&mut data.to_owned());
+    println!("Begin recording...");
+
+    type ArcLockedVec = Arc<Mutex<Option<Vec<f32>>>>;
+    let data_fn = move |data: &[f32], buffer: &ArcLockedVec| {
+        if let Ok(mut guard) = buffer.try_lock() {
+            if let Some(buffer) = guard.as_mut() {
+                buffer.append(&mut data.to_vec());
+            }
+        }
     };
 
-    let err_fn = move |err| {
-        eprintln!("an error occurred on stream: {}", err);
-    };
-
+    let buffer_2 = buffer.clone();
     let stream = match config.sample_format() {
-        cpal::SampleFormat::F32 => input_device.build_input_stream(
+        cpal::SampleFormat::F32 => device.build_input_stream(
             &config.into(),
-            data_fn,
-            err_fn,
-        ).expect("failed to build input stream"),
+            move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                data_fn(data, &buffer_2);
+            },
+            move |err: cpal::StreamError| eprintln!("An error occurred on stream: {}", err),
+        )?,
         sample_format => {
             panic!("Unsupported sample format: {:?}", sample_format);
         }
     };
 
-    let record_duration: u64 = 3;
+    stream.play()?;
 
-    print!("Recording for {} seconds.", record_duration);
-    stream.play().unwrap();
-
-    std::thread::sleep(std::time::Duration::from_secs(record_duration));
+    // Let recording run for the specified duration.
+    std::thread::sleep(duration);
     drop(stream);
+    let x = buffer
+        .lock()
+        .expect("Could not take lock on recording buffer")
+        .take()
+        .expect("Could not reclaim mutex on recording buffer");
+
     println!("Finished recording");
 
-    /////////////////////////////////////////////////////////////////////
-    println!("Playing audio.");
-    let output_config = output_device.default_output_config().unwrap();
-    match output_config.sample_format() {
-        cpal::SampleFormat::F32 => run(&output_device, &output_config.into()),
-        _ => panic!("Unsupported sample format!"),
-    }
-    /////////////////////////////////////////////////////////////////////
-    println!("Done playing audio.");
+    Ok(x)
 }
 
-pub fn run(device: &cpal::Device, config: &cpal::StreamConfig)
-{
-    let sample_rate = config.sample_rate.0 as f32;
-    let channels = config.channels as usize;
-
-    // Produce a sinusoid of maximum amplitude.
-    let mut sample_clock = 0f32;
-    let mut next_value = move || {
-        sample_clock = (sample_clock + 1.0) % sample_rate;
-        (sample_clock * 440.0 * 2.0 * std::f32::consts::PI / sample_rate).sin()
-    };
-
-    let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
-
-    let stream = device.build_output_stream(
-        config,
-        move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-            for frame in data.chunks_mut(channels) {
-                let value = next_value();
-                for sample in frame.iter_mut() {
-                    *sample = value;
-                }
-            }
-        },
-        err_fn,
-    ).unwrap();
-    stream.play().unwrap();
-
-    std::thread::sleep(std::time::Duration::from_millis(3000));
-
-}
-
-fn main() {
+fn main() -> Result<(), anyhow::Error> {
     println!("\n\nDEVICE & DRIVER OVERVIEW\n");
     system_overview();
 
-    println!("\n\nMICROPHONE SAMPLE DEMO\n");
-    microphone_sample_demo();
+    let input_data = capture_input(std::time::Duration::from_secs(1))?;
+    println!("Captured: {:?}", input_data.len());
+    println!("Debug: {:?}", input_data);
+
+    Ok(())
 }
