@@ -71,24 +71,70 @@ fn capture_input(duration: std::time::Duration) -> Result<Vec<f32>, anyhow::Erro
     // Let recording run for the specified duration.
     std::thread::sleep(duration);
     drop(stream);
-    let x = buffer
+    println!("Finished recording");
+
+    let buffer = buffer
         .lock()
         .expect("Could not take lock on recording buffer")
         .take()
         .expect("Could not reclaim mutex on recording buffer");
 
-    println!("Finished recording");
+    Ok(buffer)
+}
 
-    Ok(x)
+fn play_buffer(buffer: Vec<f32>) -> Result<(), anyhow::Error> {
+    let device = cpal::default_host()
+        .default_output_device()
+        .expect("no output device available");
+    println!("Output device: {}", device.name()?);
+
+    let config = device
+        .default_output_config()
+        .expect("failed to get default output config");
+    println!("Default output config: {:?}", config);
+
+    let cell = std::cell::RefCell::new(buffer.clone());
+
+    let c = cell.clone();
+    let data_fn = move |data: &mut [f32]| {
+        for sample in data {
+            *sample = match c.borrow_mut().pop() {
+                Some(s) => s,
+                None => 0.0
+            }
+        }
+    };
+
+    let stream = match config.sample_format() {
+        cpal::SampleFormat::F32 => device.build_output_stream(
+            &config.into(),
+            move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                data_fn(data);
+            },
+            move |err| eprintln!("an error occurred on stream: {}", err),
+        )?,
+        sample_format => {
+            panic!("Unsupported sample format: {:?}", sample_format);
+        }
+    };
+    stream.play()?;
+
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    drop(stream);
+
+    Ok(())
 }
 
 fn main() -> Result<(), anyhow::Error> {
     println!("\n\nDEVICE & DRIVER OVERVIEW\n");
     system_overview();
 
-    let input_data = capture_input(std::time::Duration::from_secs(1))?;
+    let input_data = capture_input(std::time::Duration::from_secs(3))?;
     println!("Captured: {:?}", input_data.len());
-    println!("Debug: {:?}", input_data);
+
+    println!("Playing back...");
+    play_buffer(input_data)?;
+    println!("Finished playback.");
 
     Ok(())
 }
