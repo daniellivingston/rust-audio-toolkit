@@ -1,3 +1,7 @@
+# AFX Song File Toolkit
+
+This Crate is an attempt to parse various music-based audio input formats.
+
 ## Milestones
 
 ### v0.1.0
