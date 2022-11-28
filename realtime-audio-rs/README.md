@@ -16,3 +16,8 @@ Within this folder, simply run:
 ```sh
 cargo run
 ```
+
+### References
+
+- [Note Frequency Table](https://pages.mtu.edu/~suits/notefreqs.html)
+
