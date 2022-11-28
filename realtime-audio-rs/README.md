@@ -19,6 +19,7 @@ cargo run
 
 ### References
 
+- [Music Source Separation - Tools & Methodologies](https://source-separation.github.io/tutorial/basics/representations.html)
 - [Music information retrieval (MIR)](https://en.wikipedia.org/wiki/Music_information_retrieval)
 - [Note Frequency Table](https://pages.mtu.edu/~suits/notefreqs.html)
 
