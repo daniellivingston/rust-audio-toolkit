@@ -58,7 +58,7 @@ class Audio(object):
 
     def fft(self):
         data = self.get_data(
-            keep_channels=True,
+            keep_channels=False,
             normalized=True,
             abs=True
         )
@@ -79,41 +79,41 @@ class Audio(object):
         Y_k = np.fft.fft(data)[0:int(N/2)]/N # FFT function from numpy
         Y_k[1:] = 2*Y_k[1:] # need to take the single-sided spectrum only
         Pxx = np.abs(Y_k) # be sure to get rid of imaginary part
-        f = self.sample_rate * np.arange((N/2))/N; # frequency vector
+        #f = self.sample_rate * np.arange((N/2))/N; # frequency vector
+        f = fft.fftfreq(self.num_samples, delta) # frequency vector
         return (f, Pxx)
 
         # transform = np.abs(fft.fft(data))
         # freqs = fft.fftfreq(self.num_samples, delta)
-
         # return (transform, freqs)
 
     def plot(self):
-        fig, ax = plt.subplots(2)
-        fig.suptitle("Frequency analysis: '???.wav'")
+        fig, ax = plt.subplots(2,2)
+        fig.suptitle("FFT Analysis")
 
-        ax[0].plot(
+        ax[0][0].plot(
             self.sample_times,
             self.get_data(normalized=True),
             'g',
-            label="Freq. v. Time",
+            label="Audio Waveform",
             linewidth=0.5
         )
-        ax[0].set_xlabel("Time (s)")
-        ax[0].set_ylabel("Amplitude")
+        ax[0][0].set_xlabel("Time (s)")
+        ax[0][0].set_ylabel("Amplitude (unitless)")
 
         f, Pxx = self.fft()
-        ax[1].plot(f, Pxx)
-        ax[1].set_xscale('log')
-        ax[1].set_yscale('log')
-        ax[1].set_xlabel('Frequency (Hz)')
-        ax[1].set_ylabel('Amplitude')
+        ax[1][0].plot(f, Pxx)
+        ax[1][0].set_xscale('log')
+        ax[1][0].set_yscale('log')
+        ax[1][0].set_xlabel('Frequency (Hz)')
+        ax[1][0].set_ylabel('Amplitude (unitless)')
 
         for freq in Notes().frequencies:
-            ax[1].axvline(freq,
-                          color='grey',
-                          linestyle='--',
-                          linewidth=0.3,
-                          label="Note")
+            ax[1][0].axvline(freq,
+                             color='grey',
+                             linestyle='--',
+                             linewidth=0.3,
+                             label="Note")
 
         # continue here...
         # https://makersportal.com/blog/2018/9/17/audio-processing-in-python-part-ii-exploring-windowing-sound-pressure-levels-and-a-weighting-using-an-iphone-x
