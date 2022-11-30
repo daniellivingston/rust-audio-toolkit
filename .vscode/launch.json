@@ -10,8 +10,8 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/realtime-audio-rs/scripts/",
             "justMyCode": true,
-            "args": ["unpack", "/Users/livingston/dev/playground/realtime-audio-rs/afx-song-file-toolkit/bin/psarc/dlc/karmapolice_m.psarc"]
         }
     ]
 }
