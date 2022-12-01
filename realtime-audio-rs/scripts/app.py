@@ -12,7 +12,13 @@ from scipy.io import wavfile
 
 Waveform = namedtuple("Waveform", "time amplitude")
 
+from scipy.fftpack import fft
+
 class Audio():
+    @classmethod
+    def hanning_window(cls, window_size: int, hop_size: int) -> np.ndarray:
+        return np.hanning(window_size)
+
     def __init__(self, filename: str = None):
         self._sample_rate: float = None
         self._sample_duration: float = None
@@ -38,10 +44,38 @@ class Audio():
     def waveform(self) -> Waveform:
         return self._waveform
 
-def plot_time_series():
-    audio = Audio(filename='../bin/c3-major-scale-piano.wav')
+def discrete_fourier_transform(audio: Audio) -> np.ndarray:
+    waveform = audio.waveform()
+    v_freq = abs(fft(abs(waveform.amplitude)))
+    return (
+        v_freq,#[:len(waveform.amplitude)//2]
+        np.arange(0, audio.sample_rate() / 2., audio.duration())
+    )
+
+def plot_discrete_fourier_transform(audio: Audio):
     wf = audio.waveform()
 
+    fft = discrete_fourier_transform(
+        waveform=wf,
+        sample_rate=audio.sample_rate()
+    )
+    fft = fft / np.linalg.norm(fft) # normalize
+
+    stride = 1
+    fig = px.scatter(
+        x=freq[::stride],
+        y=fft[::stride],
+        labels=dict(x="Frequency (Hz)", y="Amplitude (Normalized)"),
+        log_y=True
+    )
+
+    return html.Div(children=[
+        html.Div("Frequency Domain"),
+        dcc.Graph(id='graph-freq-domain', figure=fig)
+    ])
+
+def plot_time_series(audio: Audio):
+    wf = audio.waveform()
     stride = 5 # save memory usage
 
     fig = px.scatter(
@@ -52,14 +86,16 @@ def plot_time_series():
 
     return html.Div(children=[
         html.Div("Time Domain"),
-        dcc.Graph(id='graph-time-series', figure=fig)
+        dcc.Graph(id='graph-time-domain', figure=fig)
     ])
 
-app = Dash(__name__)
+audio = Audio(filename='../bin/c3-major-scale-piano.wav')
 
+app = Dash(__name__)
 app.layout = html.Div(children=[
     html.H1('Frequency Analysis'),
-    plot_time_series()
+    plot_time_series(audio),
+    plot_discrete_fourier_transform(audio),
 ])
 
 if __name__ == '__main__':
