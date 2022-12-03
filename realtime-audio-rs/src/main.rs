@@ -3,6 +3,7 @@ use cpal::{
     platform::HostId,
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
+use pitch_detection::float::Float;
 
 #[allow(unused)]
 #[derive(Debug)]
@@ -157,6 +158,76 @@ fn play_buffer(audio: Audio) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+fn get_chunk<T: Float>(signal: &[T], start: usize, window: usize, output: &mut [T]) {
+    let start = match signal.len() > start {
+        true => start,
+        false => signal.len()
+    };
+
+    let stop = match signal.len() >= start + window {
+        true => start + window,
+        false => signal.len()
+    };
+
+    for i in 0..stop - start {
+        output[i] = signal[start + i];
+    }
+
+    for i in stop - start..output.len() {
+        output[i] = T::zero();
+    }
+}
+
+fn print_detected_pitches(audio: &Audio) -> Result<(), anyhow::Error> {
+    use pitch_detection::detector::mcleod::McLeodDetector;
+    use pitch_detection::detector::PitchDetector;
+    use pitch_detection::utils::buffer::new_real_buffer;
+
+    let sample_rate = audio.sample_rate.0 as usize;
+    let duration: f32 = audio.raw_data.len() as f32 / sample_rate as f32;
+    let sample_size: usize = (audio.sample_rate.0 as f32 * duration) as usize;
+
+    const WINDOW: usize = 1024;
+    const PADDING: usize = WINDOW / 2;
+    const DELTA_T: usize = WINDOW / 4;
+    let n_windows: usize = (sample_size - WINDOW) / DELTA_T;
+
+    const POWER_THRESHOLD: f32 = 300.0;
+    const CLARITY_THRESHOLD: f32 = 0.6;
+
+    let mut chunk = new_real_buffer(WINDOW);
+
+    let mut detector = McLeodDetector::new(WINDOW, PADDING);
+
+    for i in 0..n_windows {
+        let t: usize = i * DELTA_T;
+
+        get_chunk(&audio.raw_data, t, WINDOW, &mut chunk);
+
+        let pitch = detector
+            .get_pitch(&chunk, sample_rate, POWER_THRESHOLD, CLARITY_THRESHOLD);
+
+        match pitch {
+            Some(pitch) => {
+                let frequency = pitch.frequency;
+                let clarity = pitch.clarity;
+                let idx = sample_rate as f32 / frequency;
+                let epsilon = (sample_rate as f32 / (idx - 1.0)) - frequency;
+
+                println!(
+                    "[{idx}] Frequency: {:.2} +/- {:.2} Hz; Clarity: {:.2}",
+                    frequency, epsilon, clarity,
+                );
+            }
+            None => {
+                eprintln!("No pitch detected");
+            }
+        }
+    }
+
+    Ok(())
+}
+
 fn main() -> Result<(), anyhow::Error> {
     println!("\n\nDEVICE & DRIVER OVERVIEW\n");
     system_overview();
@@ -164,6 +235,9 @@ fn main() -> Result<(), anyhow::Error> {
     let capture_duration = std::time::Duration::from_secs(3);
     let captured = capture_input(capture_duration)?;
     println!("Captured: {:?}", captured.raw_data.len());
+
+    println!("Analyzing...");
+    let _ = print_detected_pitches(&captured);
 
     println!("Playing back...");
     play_buffer(captured)?;
