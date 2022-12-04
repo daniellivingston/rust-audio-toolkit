@@ -84,6 +84,7 @@ fn capture_input(duration: std::time::Duration) -> Result<Audio, anyhow::Error> 
         cpal::SampleFormat::F32 => device.build_input_stream(
             &config.into(),
             move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                println!("data: {:?}", data);
                 data_fn(data, &buffer_2);
             },
             move |err: cpal::StreamError| eprintln!("An error occurred on stream: {}", err),
@@ -192,7 +193,7 @@ fn print_detected_pitches(audio: &Audio) -> Result<(), anyhow::Error> {
     const DELTA_T: usize = WINDOW / 4;
     let n_windows: usize = (sample_size - WINDOW) / DELTA_T;
 
-    const POWER_THRESHOLD: f32 = 300.0;
+    const POWER_THRESHOLD: f32 = 0.0;
     const CLARITY_THRESHOLD: f32 = 0.6;
 
     let mut chunk = new_real_buffer(WINDOW);
@@ -220,7 +221,7 @@ fn print_detected_pitches(audio: &Audio) -> Result<(), anyhow::Error> {
                 );
             }
             None => {
-                eprintln!("No pitch detected");
+                eprintln!("Error: failed to detect pitch");
             }
         }
     }
