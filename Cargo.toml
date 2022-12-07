@@ -1,6 +1,7 @@
-[workspace]
-members = [
-    "rta",
-    "afx-song-file-toolkit",
-    "realtime-audio-rs"
-]
+[package]
+name = "rta"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.0", features = ["derive"] }
