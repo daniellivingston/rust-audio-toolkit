@@ -6,76 +6,97 @@
 from dash import Dash, html, dcc
 from dash.dependencies import Input, Output, State
 import plotly.express as px
-import pandas as pd
+import numpy as np
+from collections import namedtuple
+from scipy.io import wavfile
 
-app = Dash(__name__)
-app.layout = html.Div([
-    dcc.Tabs(id="tabs", value="tab-1", children=[
-        dcc.Tab(label='Tab one', value='tab-1'),
-        dcc.Tab(label='Tab two', value='tab-2')
-    ]),
-    html.Div(id='tabs-content')
-])
+Waveform = namedtuple("Waveform", "time amplitude")
 
-colors = {
-    'background': '#111111',
-    'text': '#7FDBFF'
-}
+from scipy.fftpack import fft
 
-def page1():
-    df = pd.DataFrame({
-        "Fruit": ["Apples", "Oranges", "Bananas", "Apples", "Oranges", "Bananas"],
-        "Amount": [4, 1, 2, 2, 4, 5],
-        "City": ["SF", "SF", "SF", "Montreal", "Montreal", "Montreal"]
-    })
+class Audio():
+    @classmethod
+    def hanning_window(cls, window_size: int, hop_size: int) -> np.ndarray:
+        return np.hanning(window_size)
 
-    fig = px.bar(df, x="Fruit", y="Amount", color="City", barmode="group")
+    def __init__(self, filename: str = None):
+        self._sample_rate: float = None
+        self._sample_duration: float = None
+        self._waveform: Waveform = None
+
+        if filename is not None:
+            self.load(filename)
+
+    def load(self, filename) -> None:
+        self._sample_rate, data = wavfile.read(filename)
+        data = data.mean(axis=1)
+        self._sample_duration = float(len(data)) / self._sample_rate
+
+        self._waveform = Waveform(
+            time=np.arange(0., self._sample_duration, 1. / self._sample_rate),
+            amplitude=data,
+        )
+
+    def duration(self) -> float:
+        return self._sample_duration
+    def sample_rate(self) -> float:
+        return self._sample_rate
+    def waveform(self) -> Waveform:
+        return self._waveform
+
+def discrete_fourier_transform(audio: Audio) -> np.ndarray:
+    waveform = audio.waveform()
+    v_freq = abs(fft(abs(waveform.amplitude)))
+    return (
+        v_freq,#[:len(waveform.amplitude)//2]
+        np.arange(0, audio.sample_rate() / 2., audio.duration())
+    )
+
+def plot_discrete_fourier_transform(audio: Audio):
+    wf = audio.waveform()
+
+    fft = discrete_fourier_transform(
+        waveform=wf,
+        sample_rate=audio.sample_rate()
+    )
+    fft = fft / np.linalg.norm(fft) # normalize
+
+    stride = 1
+    fig = px.scatter(
+        x=freq[::stride],
+        y=fft[::stride],
+        labels=dict(x="Frequency (Hz)", y="Amplitude (Normalized)"),
+        log_y=True
+    )
 
     return html.Div(children=[
-        html.H1(children='Hello Dash'),
-
-        html.Div(children='''
-            Dash: A web application framework for your data.
-        ''',
-            style = {
-                "textAlign": "center",
-                "color": colors['text']
-            }
-        ),
-
-        dcc.Graph(
-            id='example-graph',
-            figure=fig
-        )
+        html.Div("Frequency Domain"),
+        dcc.Graph(id='graph-freq-domain', figure=fig)
     ])
 
+def plot_time_series(audio: Audio):
+    wf = audio.waveform()
+    stride = 5 # save memory usage
 
-@app.callback(Output('my-store', 'data'),
-              Input('my-store-input', 'value'))
-def update_store(value):
-    return value
+    fig = px.scatter(
+        x=wf.time[::stride],
+        y=wf.amplitude[::stride],
+        labels=dict(x="Time (s)", y="Amplitude"),
+    )
 
-@app.callback(Output('current-store', 'children'),
-              Input('my-store', 'modified_timestamp'),
-              State('my-store', 'data'))
-def display_store_info(timestamp, data):
-    return f"The store currently contains {data} and the modified timestamp is {timestamp}"
-
-def page2():
-    return html.Div([
-        dcc.Store(id='my-store'),
-        dcc.RadioItems(['NYC', 'MTL', 'SF'], 'NYC', id='my-store-input'),
-        html.Div(id='current-store')
+    return html.Div(children=[
+        html.Div("Time Domain"),
+        dcc.Graph(id='graph-time-domain', figure=fig)
     ])
 
-@app.callback(Output('tabs-content', 'children'),
-              Input('tabs', 'value'))
-def render_content(tab):
-    if tab == 'tab-1':
-        return page1()
-    else:
-        return page2()
+audio = Audio(filename='../bin/c3-major-scale-piano.wav')
+
+app = Dash(__name__)
+app.layout = html.Div(children=[
+    html.H1('Frequency Analysis'),
+    plot_time_series(audio),
+    plot_discrete_fourier_transform(audio),
+])
 
 if __name__ == '__main__':
     app.run_server(debug=True)
-

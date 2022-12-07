@@ -5,4 +5,5 @@ edition = "2021"
 
 [dependencies]
 cpal = "0.14"
+pitch-detection = "0.3.0"
 anyhow = "1.0"
