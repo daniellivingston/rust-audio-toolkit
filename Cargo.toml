@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "rta",
     "afx-song-file-toolkit",
     "realtime-audio-rs"
 ]
