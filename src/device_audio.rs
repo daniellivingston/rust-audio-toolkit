@@ -229,7 +229,7 @@ fn print_detected_pitches(audio: &Audio) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn main() -> Result<(), anyhow::Error> {
+pub fn system_test() -> Result<(), anyhow::Error> {
     println!("\n\nDEVICE & DRIVER OVERVIEW\n");
     system_overview();
 

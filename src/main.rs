@@ -1,41 +1,51 @@
-use std::path::PathBuf;
 use clap::{Parser, Subcommand};
+use std::path::PathBuf;
 
-#[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+use rta::{
+    psarc::print_psarc_header,
+    device_audio::system_test,
+};
+
+#[derive(Debug, Parser)]
+#[command(name = "rta")]
+#[command(about = "Real-time audio analysis", long_about = None)]
 struct Cli {
-    /// Turn debugging information on
-    #[arg(short, long, action = clap::ArgAction::Count)]
-    debug: u8,
-
     #[command(subcommand)]
-    command: Option<Commands>,
+    command: Commands,
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 enum Commands {
-    Psarc {
-        #[arg(short, long, value_name = "FILE")]
-        file: Option<PathBuf>,
-    }
+    /// Reads a PSARC file
+    #[command(arg_required_else_help = true)]
+    Read {
+        /// The input PSARC file to read
+        #[arg(required = true)]
+        path: PathBuf,
+    },
+    /// Tests audio input and output devices
+    Devices {
+        #[arg(long, short, action)]
+        overview: bool,
+    },
 }
 
 fn main() {
-    let cli = Cli::parse();
+    let args = Cli::parse();
 
-    match cli.debug {
-        0 => println!("Debug mode = OFF"),
-        1 => println!("Debug mode = INFO"),
-        2 => println!("Debug mode = DEBUG"),
-        3 => println!("Debug mode = TRACE"),
-        _ => println!("Set to {}", cli.debug),
-    }
-
-    match &cli.command {
-        Some(Commands::Psarc { file }) => {
-            println!("psarc");
-            println!("{:?}", file);
+    match args.command {
+        Commands::Read { path } => {
+            println!("Reading file: {:?}", path);
+            print_psarc_header(path)
+                .unwrap_err();
         }
-        None => {}
+        Commands::Devices { overview } => {
+            if overview {
+                system_test()
+                    .unwrap_err();
+            } else {
+                eprintln!("Not implemented yet")
+            }
+        }
     }
 }

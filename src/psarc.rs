@@ -1,8 +1,8 @@
-use clap::Parser;
 use binrw::BinRead;
 
 use std::fs::File;
 use std::io::{Read, BufReader};
+use std::path::PathBuf;
 
 use aes::Aes256;
 use cfb_mode::Decryptor;
@@ -15,11 +15,7 @@ static ARC_IV:  [u8; 16] = [0xE9, 0x15, 0xAA, 0x01, 0x8F, 0xEF, 0x71, 0xFC, 0x50
 //let MAC_KEY = 0x9821330E34B91F70D0A48CBD625993126970CEA09192C0E6CDA676CC9838289D;
 //let WIN_KEY = 0xCB648DF3D12A16BF71701414E69619EC171CCA5D2A142E3E59DE7ADDA18A3A30;
 
-#[derive(Parser)]
-struct Cli {
-    path: std::path::PathBuf,
-}
-
+#[allow(dead_code)]
 fn pad_zeroes<const A: usize, const B: usize>(arr: [u8; A]) -> [u8; B] {
     assert!(B >= A); //just for a nicer error message, adding #[track_caller] to the function may also be desirable
     let mut b = [0; B];
@@ -136,18 +132,8 @@ impl PlaystationArchive {
     }
 }
 
-fn main() -> std::io::Result<()> {
-    // let args = Cli::parse(); // Implement later
-
-    let mut path = std::env::current_dir().unwrap();
-    [
-        "afx-song-file-toolkit",
-        "bin/psarc/dlc/",
-        "karmapolice_m.psarc"
-    ].map(|x| path.push(x));
-
+pub fn print_psarc_header(path: PathBuf) -> std::io::Result<()> {
     println!("Reading PSARC file: {:?}", path);
-
     let psarc = PlaystationArchive::read(&path);
     println!("{:?}", psarc);
 

@@ -5,3 +5,9 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.0", features = ["derive"] }
+cpal = "0.14"
+pitch-detection = "0.3.0"
+anyhow = "1.0"
+binrw = "0.10.0"
+aes = "0.8.2"
+cfb-mode = "0.8.2"
