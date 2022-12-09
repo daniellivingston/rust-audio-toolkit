@@ -1,10 +1,23 @@
+extern crate pretty_env_logger;
+#[macro_use]
+extern crate log;
+
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 use rta::{
-    psarc::print_psarc_header,
-    device_audio::system_test,
+    device_audio::{system_overview, system_test},
+    psarc::PlaystationArchive,
 };
+
+/// Print a summary of the PSARC file
+fn print_psarc_summary(path: PathBuf) {
+    let psarc = PlaystationArchive::read(&path);
+
+    println!("FILENAME:\n  {:?}\n", path);
+    println!("PSARC HEADER:\n  {:#?}\n", psarc.header);
+    println!("TOC TABLE:\n  ENTRIES: {}\n", psarc.toc.len());
+}
 
 #[derive(Debug, Parser)]
 #[command(name = "rta")]
@@ -16,35 +29,45 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    /// Reads a PSARC file
+    /// PSARC file introspection
     #[command(arg_required_else_help = true)]
     Read {
         /// The input PSARC file to read
         #[arg(required = true)]
         path: PathBuf,
-    },
-    /// Tests audio input and output devices
-    Devices {
+
+        /// Print a summary of the PSARC file
         #[arg(long, short, action)]
-        overview: bool,
+        summary: bool,
+    },
+    /// Audio device real-time input and output tests
+    Device {
+        /// List available audio devices
+        #[arg(long, short, action)]
+        list: bool,
     },
 }
 
 fn main() {
+    pretty_env_logger::init();
+    debug!("Starting rta...");
+
     let args = Cli::parse();
+    debug!("Parsed argv: {:#?}", args);
 
     match args.command {
-        Commands::Read { path } => {
-            println!("Reading file: {:?}", path);
-            print_psarc_header(path)
-                .unwrap_err();
-        }
-        Commands::Devices { overview } => {
-            if overview {
-                system_test()
-                    .unwrap_err();
+        Commands::Read { path, summary } => {
+            if summary {
+                print_psarc_summary(path);
             } else {
-                eprintln!("Not implemented yet")
+                eprintln!("Invalid arguments");
+            }
+        }
+        Commands::Device { list } => {
+            if list {
+                system_overview();
+            } else {
+                system_test().expect("System test failed");
             }
         }
     }

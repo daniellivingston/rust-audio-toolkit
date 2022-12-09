@@ -1,9 +1,10 @@
-use std::sync::{Arc, Mutex};
 use cpal::{
     platform::HostId,
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
+use log::info;
 use pitch_detection::float::Float;
+use std::sync::{Arc, Mutex};
 
 #[allow(unused)]
 #[derive(Debug)]
@@ -11,24 +12,26 @@ pub struct Audio {
     raw_data: Vec<f32>,
     duration: std::time::Duration,
     sample_rate: cpal::SampleRate,
-    channels: cpal::ChannelCount
+    channels: cpal::ChannelCount,
 }
 
 impl Audio {
-    pub fn new(data: Vec<f32>,
-               duration: std::time::Duration,
-               sample_rate: cpal::SampleRate,
-               channels: cpal::ChannelCount) -> Audio {
+    pub fn new(
+        data: Vec<f32>,
+        duration: std::time::Duration,
+        sample_rate: cpal::SampleRate,
+        channels: cpal::ChannelCount,
+    ) -> Audio {
         Audio {
             raw_data: data,
             duration: duration,
             sample_rate: sample_rate,
-            channels: channels
+            channels: channels,
         }
     }
 }
 
-fn system_overview() {
+pub fn system_overview() {
     let hosts: Vec<HostId> = cpal::platform::available_hosts();
     println!("Available hosts (count = {}):", hosts.len());
     for host in hosts {
@@ -39,15 +42,27 @@ fn system_overview() {
     println!("\nUsing default host: {}", default_host.id().name());
 
     let input_devices: Vec<cpal::Device> = default_host.input_devices().unwrap().collect();
-    println!("\nAvailable input devices (count = {}):", input_devices.len());
+    println!(
+        "\nAvailable input devices (count = {}):",
+        input_devices.len()
+    );
     for device in input_devices {
-        println!("- {}", device.name().unwrap_or(String::from("ERROR_UNKNOWN")));
+        println!(
+            "- {}",
+            device.name().unwrap_or(String::from("ERROR_UNKNOWN"))
+        );
     }
 
     let output_devices: Vec<cpal::Device> = default_host.output_devices().unwrap().collect();
-    println!("\nAvailable output devices (count = {}):", output_devices.len());
+    println!(
+        "\nAvailable output devices (count = {}):",
+        output_devices.len()
+    );
     for device in output_devices {
-        println!("- {}", device.name().unwrap_or(String::from("ERROR_UNKNOWN")));
+        println!(
+            "- {}",
+            device.name().unwrap_or(String::from("ERROR_UNKNOWN"))
+        );
     }
 }
 
@@ -55,17 +70,16 @@ fn capture_input(duration: std::time::Duration) -> Result<Audio, anyhow::Error> 
     let device = cpal::default_host()
         .default_input_device()
         .expect("no input device available");
-    println!("Input device: {}", device.name()?);
+    info!("Input device: {}", device.name()?);
 
     let config = device
         .default_input_config()
         .expect("failed to get default input config");
-    println!("Default input config: {:?}", config);
 
     let buffer: Vec<f32> = vec![];
     let buffer = Arc::new(Mutex::new(Some(buffer)));
 
-    println!("Begin recording...");
+    info!("Begin recording...");
 
     let sample_rate = config.sample_rate();
     let channels = config.channels();
@@ -84,13 +98,12 @@ fn capture_input(duration: std::time::Duration) -> Result<Audio, anyhow::Error> 
         cpal::SampleFormat::F32 => device.build_input_stream(
             &config.into(),
             move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                println!("data: {:?}", data);
                 data_fn(data, &buffer_2);
             },
             move |err: cpal::StreamError| eprintln!("An error occurred on stream: {}", err),
         )?,
         sample_format => {
-            panic!("Unsupported sample format: {:?}", sample_format);
+            panic!("Unsupported sample format: {:#?}", sample_format);
         }
     };
 
@@ -99,7 +112,7 @@ fn capture_input(duration: std::time::Duration) -> Result<Audio, anyhow::Error> 
     // Let recording run for the specified duration.
     std::thread::sleep(duration);
     drop(stream);
-    println!("Finished recording");
+    info!("Finished recording");
 
     let buffer = buffer
         .lock()
@@ -119,7 +132,6 @@ fn play_buffer(audio: Audio) -> Result<(), anyhow::Error> {
     let config = device
         .default_output_config()
         .expect("failed to get default output config");
-    println!("Default output config: {:?}", config);
 
     // TODO: these complications come from trying to translate one channel (microphone)
     // into two (stereo speakers).
@@ -132,8 +144,7 @@ fn play_buffer(audio: Audio) -> Result<(), anyhow::Error> {
         if flag {
             last = data.next().unwrap_or(0f32);
             last
-        }
-        else {
+        } else {
             last
         }
     };
@@ -142,8 +153,7 @@ fn play_buffer(audio: Audio) -> Result<(), anyhow::Error> {
         cpal::SampleFormat::F32 => device.build_output_stream(
             &config.into(),
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                data.iter_mut()
-                    .for_each(|d| *d = next_value())
+                data.iter_mut().for_each(|d| *d = next_value())
             },
             move |err| eprintln!("an error occurred on stream: {}", err),
         )?,
@@ -162,12 +172,12 @@ fn play_buffer(audio: Audio) -> Result<(), anyhow::Error> {
 fn get_chunk<T: Float>(signal: &[T], start: usize, window: usize, output: &mut [T]) {
     let start = match signal.len() > start {
         true => start,
-        false => signal.len()
+        false => signal.len(),
     };
 
     let stop = match signal.len() >= start + window {
         true => start + window,
-        false => signal.len()
+        false => signal.len(),
     };
 
     for i in 0..stop - start {
@@ -205,8 +215,7 @@ fn print_detected_pitches(audio: &Audio) -> Result<(), anyhow::Error> {
 
         get_chunk(&audio.raw_data, t, WINDOW, &mut chunk);
 
-        let pitch = detector
-            .get_pitch(&chunk, sample_rate, POWER_THRESHOLD, CLARITY_THRESHOLD);
+        let pitch = detector.get_pitch(&chunk, sample_rate, POWER_THRESHOLD, CLARITY_THRESHOLD);
 
         match pitch {
             Some(pitch) => {
@@ -221,7 +230,7 @@ fn print_detected_pitches(audio: &Audio) -> Result<(), anyhow::Error> {
                 );
             }
             None => {
-                eprintln!("Error: failed to detect pitch");
+                println!("(no pitch detected)");
             }
         }
     }
@@ -230,12 +239,11 @@ fn print_detected_pitches(audio: &Audio) -> Result<(), anyhow::Error> {
 }
 
 pub fn system_test() -> Result<(), anyhow::Error> {
-    println!("\n\nDEVICE & DRIVER OVERVIEW\n");
-    system_overview();
-
     let capture_duration = std::time::Duration::from_secs(3);
+    println!("Recording for duration: {:#?}", capture_duration);
+
     let captured = capture_input(capture_duration)?;
-    println!("Captured: {:?}", captured.raw_data.len());
+    println!("Captured: {}", captured.raw_data.len());
 
     println!("Analyzing...");
     let _ = print_detected_pitches(&captured);

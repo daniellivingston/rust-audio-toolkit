@@ -1,6 +1,6 @@
 [package]
 name = "rta"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
@@ -11,3 +11,5 @@ anyhow = "1.0"
 binrw = "0.10.0"
 aes = "0.8.2"
 cfb-mode = "0.8.2"
+pretty_env_logger = "0.4"
+log = "0.4"
