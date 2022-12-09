@@ -72,7 +72,7 @@ $ ./rta --help
 
 ### Progress Tracker
 
-- [ ] **v0.2:**
+- [ ] **v0.3.0:**
   - [ ] Implementation of music feature extraction algorithm
   - [ ] Fully-featured PSARC file parsing
   - [x] Implement initial pass at music feature extraction
