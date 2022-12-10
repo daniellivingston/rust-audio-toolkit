@@ -56,6 +56,10 @@ $ cd target/debug/
 $ ./rta --help
 ```
 
+## Documentation
+
+- Developer documentation: [RTA Wiki](https://github.com/daniellivingston/realtime-audio-rs/wiki)
+
 ## Release Milestones
 
 - **v1.0.0: Public release**
