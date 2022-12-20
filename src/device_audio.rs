@@ -238,6 +238,11 @@ fn print_detected_pitches(audio: &Audio) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+pub fn analyze_wav(path: std::path::PathBuf) -> Result<(), anyhow::Error> {
+    println!("Reading {:?}", path);
+    Ok(())
+}
+
 pub fn system_test() -> Result<(), anyhow::Error> {
     let capture_duration = std::time::Duration::from_secs(3);
     println!("Recording for duration: {:#?}", capture_duration);

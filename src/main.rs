@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 use rta::{
-    device_audio::{system_overview, system_test},
+    device_audio::{analyze_wav, system_overview, system_test},
     psarc::PlaystationArchive,
 };
 
@@ -39,6 +39,10 @@ enum Commands {
         /// Print a summary of the PSARC file
         #[arg(long, short, action)]
         summary: bool,
+
+        /// Analyze the WAV file
+        #[arg(long, short, action)]
+        analyze: bool,
     },
     /// Audio device real-time input and output tests
     Device {
@@ -56,9 +60,15 @@ fn main() {
     debug!("Parsed argv: {:#?}", args);
 
     match args.command {
-        Commands::Read { path, summary } => {
+        Commands::Read {
+            path,
+            summary,
+            analyze,
+        } => {
             if summary {
                 print_psarc_summary(path);
+            } else if analyze {
+                analyze_wav(path).expect("Analyze WAV failed");
             } else {
                 eprintln!("Invalid arguments");
             }
