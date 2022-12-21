@@ -885,6 +885,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasciigraph"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10f9690d7e935db7c1475554993ec7162d11a83fae5261be2d9191294a31ac82"
+
+[[package]]
 name = "raw-window-handle"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -933,6 +939,7 @@ dependencies = [
  "log",
  "pitch-detection",
  "pretty_env_logger",
+ "rasciigraph",
 ]
 
 [[package]]

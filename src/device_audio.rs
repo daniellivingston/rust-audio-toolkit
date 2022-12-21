@@ -1,3 +1,5 @@
+use rasciigraph; // temporary
+
 use cpal::{
     platform::HostId,
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -6,6 +8,18 @@ use log::info;
 use pitch_detection::float::Float;
 use std::sync::{Arc, Mutex};
 use hound;
+
+fn plot(data: &Vec<f64>, caption: String) {
+    println!("{}",
+        rasciigraph::plot(
+            data.clone(),
+            rasciigraph::Config::default()
+                .with_offset(10)
+                .with_height(10)
+                .with_caption(caption)
+        )
+    );
+}
 
 #[allow(unused)]
 #[derive(Debug)]
@@ -240,11 +254,10 @@ fn print_detected_pitches(audio: &Audio) -> Result<(), anyhow::Error> {
 }
 
 pub fn analyze_wav(path: std::path::PathBuf) -> Result<(), anyhow::Error> {
-    println!("Reading {:?}", path);
-
-    let mut reader = hound::WavReader::open(path)?;
-
+    let mut reader = hound::WavReader::open(&path)?;
     let spec = reader.spec();
+
+    println!("Path: {:?}", path);
     println!("Duration: {}s", reader.duration() / spec.sample_rate);
     println!("{:#?}", spec);
     println!("------------");
@@ -253,10 +266,12 @@ pub fn analyze_wav(path: std::path::PathBuf) -> Result<(), anyhow::Error> {
     let sample_rate = cpal::SampleRate(spec.sample_rate);
     let channels = spec.channels as cpal::ChannelCount;
     let samples: Vec<f32> = reader
-                              .samples()
-                              .step_by(spec.channels as usize)
-                              .map(|x| x.unwrap())
+                              .samples::<i16>() // WARNING: i16 is ONLY valid for c3-major-scale-piano.wav
+                              //.step_by(spec.channels as usize)
+                              .map(|x| x.unwrap() as f32)
                               .collect::<Vec<_>>();
+
+    // plot(samples.iter().map(|x| *x as f64).collect(), String::from("Samples"));
 
     let audio = Audio::new(samples, duration, sample_rate, channels);
     print_detected_pitches(&audio)

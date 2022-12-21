@@ -14,3 +14,5 @@ aes = "0.8.2"
 cfb-mode = "0.8.2"
 pretty_env_logger = "0.4"
 log = "0.4"
+
+rasciigraph = "0.1.1" # dev dependency; temporary
