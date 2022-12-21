@@ -18,6 +18,14 @@ This project is an attempt to build a high-performance, high-quality music pract
 cargo run -- read --summary ./bin/psarc/dlc/karmapolice_m.psarc
 ```
 
+#### Analyze WAVE file
+
+```sh
+./target/debug/rta read --analyze bin/wav/c3-major-scale-piano.wav
+# -or- #
+cargo run -- read --analyze bin/wav/c3-major-scale-piano.wav
+```
+
 ### Audio Devices
 
 ### Realtime Device Experiment

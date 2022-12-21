@@ -5,6 +5,7 @@ use cpal::{
 use log::info;
 use pitch_detection::float::Float;
 use std::sync::{Arc, Mutex};
+use hound;
 
 #[allow(unused)]
 #[derive(Debug)]
@@ -240,6 +241,17 @@ fn print_detected_pitches(audio: &Audio) -> Result<(), anyhow::Error> {
 
 pub fn analyze_wav(path: std::path::PathBuf) -> Result<(), anyhow::Error> {
     println!("Reading {:?}", path);
+
+    let mut reader = hound::WavReader::open(path)?;
+    let sqr_sum = reader.samples::<i16>()
+                              .fold(0.0,
+    |sqr_sum, s|
+    {
+        let sample = s.unwrap() as f64;
+        sqr_sum + sample * sample
+    });
+    println!("RMS is {}", (sqr_sum / reader.len() as f64).sqrt());
+
     Ok(())
 }
 
