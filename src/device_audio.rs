@@ -243,16 +243,23 @@ pub fn analyze_wav(path: std::path::PathBuf) -> Result<(), anyhow::Error> {
     println!("Reading {:?}", path);
 
     let mut reader = hound::WavReader::open(path)?;
-    let sqr_sum = reader.samples::<i16>()
-                              .fold(0.0,
-    |sqr_sum, s|
-    {
-        let sample = s.unwrap() as f64;
-        sqr_sum + sample * sample
-    });
-    println!("RMS is {}", (sqr_sum / reader.len() as f64).sqrt());
 
-    Ok(())
+    let spec = reader.spec();
+    println!("Duration: {}s", reader.duration() / spec.sample_rate);
+    println!("{:#?}", spec);
+    println!("------------");
+
+    let duration = std::time::Duration::from_secs((reader.duration() / spec.sample_rate) as u64).into();
+    let sample_rate = cpal::SampleRate(spec.sample_rate);
+    let channels = spec.channels as cpal::ChannelCount;
+    let samples: Vec<f32> = reader
+                              .samples()
+                              .step_by(spec.channels as usize)
+                              .map(|x| x.unwrap())
+                              .collect::<Vec<_>>();
+
+    let audio = Audio::new(samples, duration, sample_rate, channels);
+    print_detected_pitches(&audio)
 }
 
 pub fn system_test() -> Result<(), anyhow::Error> {
