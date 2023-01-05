@@ -1,4 +1,6 @@
-extern crate pretty_env_logger;
+#![warn(clippy::all, rust_2018_idioms)]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
+
 #[macro_use]
 extern crate log;
 
@@ -29,6 +31,8 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
+    /// Launch app with `egui` backend
+    Run { },
     /// PSARC file introspection
     #[command(arg_required_else_help = true)]
     Read {
@@ -53,13 +57,22 @@ enum Commands {
 }
 
 fn main() {
-    pretty_env_logger::init();
+    // Log to stdout (if ran with `RUST_LOG=debug`)
+    tracing_subscriber::fmt::init();
     debug!("Starting rta...");
 
     let args = Cli::parse();
     debug!("Parsed argv: {:#?}", args);
 
     match args.command {
+        Commands::Run { } => {
+            let native_options = eframe::NativeOptions::default();
+            eframe::run_native(
+                "RTA",
+                native_options,
+                Box::new(|cc| Box::new(rta::TemplateApp::new(cc))),
+            );
+        }
         Commands::Read {
             path,
             summary,
@@ -82,3 +95,4 @@ fn main() {
         }
     }
 }
+
