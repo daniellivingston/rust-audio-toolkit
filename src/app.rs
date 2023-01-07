@@ -8,6 +8,9 @@ pub struct TemplateApp {
     // this how you opt-out of serialization of a member
     #[serde(skip)]
     value: f32,
+
+    //#[serde(skip)]
+    //input_device: Something,
 }
 
 impl Default for TemplateApp {
@@ -34,6 +37,14 @@ impl TemplateApp {
 
         Default::default()
     }
+
+    fn toolbar(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        egui::widgets::global_dark_light_mode_switch(ui);
+
+        ui.separator();
+
+        ui.label("Sup");
+    }
 }
 
 impl eframe::App for TemplateApp {
@@ -44,8 +55,8 @@ impl eframe::App for TemplateApp {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { label, value } = self;
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        // let Self { label, value } = self;
 
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -58,24 +69,22 @@ impl eframe::App for TemplateApp {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("Quit").clicked() {
-                        _frame.close();
+                        frame.close();
                     }
                 });
             });
         });
 
+        egui::TopBottomPanel::top("wrap_app_top_bar").show(ctx, |ui| {
+            egui::trace!(ui);
+            ui.horizontal_wrapped(|ui| {
+                ui.visuals_mut().button_frame = false;
+                self.toolbar(ui, frame);
+            });
+        });
+
         egui::SidePanel::left("side_panel").show(ctx, |ui| {
             ui.heading("Side Panel");
-
-            ui.horizontal(|ui| {
-                ui.label("Write something: ");
-                ui.text_edit_singleline(label);
-            });
-
-            ui.add(egui::Slider::new(value, 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                *value += 1.0;
-            }
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui| {
@@ -104,13 +113,16 @@ impl eframe::App for TemplateApp {
             egui::warn_if_debug_build(ui);
         });
 
-        if false {
-            egui::Window::new("Window").show(ctx, |ui| {
-                ui.label("Windows can be moved by dragging them.");
-                ui.label("They are automatically sized based on contents.");
-                ui.label("You can turn on resizing and scrolling if you like.");
-                ui.label("You would normally choose either panels OR windows.");
-            });
-        }
+        // egui::Window::new("Audio Configuration").show(ctx, |ui| {
+        //     ui.label("Windows can be moved by dragging them.");
+
+        //     egui::ComboBox::from_label("Input Device")
+        //         .selected_text(format!("{:?}", selected))
+        //         .show_ui(ui, |ui| {
+        //             ui.selectable_value(&mut selected, Enum::First, "First");
+        //             ui.selectable_value(&mut selected, Enum::Second, "Second");
+        //             ui.selectable_value(&mut selected, Enum::Third, "Third");
+        //         });
+        // });
     }
 }
