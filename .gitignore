@@ -1,3 +1,6 @@
+# Developer / private / internal
+dev/
+
 # Build files
 target/
 

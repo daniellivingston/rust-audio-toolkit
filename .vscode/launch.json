@@ -5,6 +5,20 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Exec",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--",
+                    "read",
+                    "--analyze",
+                    "${workspaceFolder}/bin/wav/c3-major-scale-piano.wav"
+                ]
+            },
+        },
+        {
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",

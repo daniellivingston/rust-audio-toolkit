@@ -5,11 +5,11 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 use log::info;
-use pitch_detection::float::Float;
+use pitch_detection::{float::Float, Pitch};
 use std::sync::{Arc, Mutex};
 use hound;
 
-fn plot(data: &Vec<f64>, caption: String) {
+fn graph(data: &Vec<f64>, caption: String) {
     println!("{}",
         rasciigraph::plot(
             data.clone(),
@@ -204,6 +204,32 @@ fn get_chunk<T: Float>(signal: &[T], start: usize, window: usize, output: &mut [
     }
 }
 
+fn get_pitches(audio: &Audio) -> Vec<Pitch<f32>> {
+    use pitch_detection::detector::mcleod::McLeodDetector;
+    use pitch_detection::detector::PitchDetector;
+    use pitch_detection::utils::buffer::new_real_buffer;
+
+    const POWER_THRESHOLD: f32 = 0.0;
+    const CLARITY_THRESHOLD: f32 = 0.8;
+    const WINDOW: usize = 1024;
+    const PADDING: usize = WINDOW / 2;
+    const DELTA_T: usize = WINDOW / 4;
+
+    let mut detector = McLeodDetector::new(WINDOW, PADDING);
+    let mut chunk = new_real_buffer(WINDOW);
+
+    let sample_rate = audio.sample_rate.0 as usize;
+    let duration: f32 = audio.raw_data.len() as f32 / sample_rate as f32;
+    let sample_size: usize = (audio.sample_rate.0 as f32 * duration) as usize;
+    let n_windows: usize = (sample_size - WINDOW) / DELTA_T;
+
+    (0..n_windows).filter_map(|i| {
+        get_chunk(&audio.raw_data, i * DELTA_T, WINDOW, &mut chunk);
+        detector.get_pitch(&chunk, sample_rate, POWER_THRESHOLD, CLARITY_THRESHOLD)
+    })
+    .collect()
+}
+
 fn print_detected_pitches(audio: &Audio) -> Result<(), anyhow::Error> {
     use pitch_detection::detector::mcleod::McLeodDetector;
     use pitch_detection::detector::PitchDetector;
@@ -253,6 +279,8 @@ fn print_detected_pitches(audio: &Audio) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+use std::collections::HashSet;
+
 pub fn analyze_wav(path: std::path::PathBuf) -> Result<(), anyhow::Error> {
     let mut reader = hound::WavReader::open(&path)?;
     let spec = reader.spec();
@@ -271,10 +299,34 @@ pub fn analyze_wav(path: std::path::PathBuf) -> Result<(), anyhow::Error> {
                               .map(|x| x.unwrap() as f32)
                               .collect::<Vec<_>>();
 
-    // plot(samples.iter().map(|x| *x as f64).collect(), String::from("Samples"));
+    // {
+    //     let samples: Vec<f64> = samples.iter().map(|&x| x as f64).step_by(5000).collect();
+    //     graph(&samples, "Power Spectrum".to_string());
+    // }
 
     let audio = Audio::new(samples, duration, sample_rate, channels);
-    print_detected_pitches(&audio)
+    let pitches = get_pitches(&audio);
+
+    println!("Detected {} pitches", pitches.len());
+    let mut pitch_min: f32 = 1e7;
+    let mut pitch_max: f32 = -1e7;
+    //let mut pitch_set = HashSet::new();
+    for pitch in pitches {
+        if pitch.frequency < pitch_min {
+            pitch_min = pitch.frequency;
+        }
+        if pitch.frequency > pitch_max {
+            pitch_max = pitch.frequency;
+        }
+    }
+    println!("Min = {}; Max = {}", pitch_min, pitch_max);
+
+    // {
+    //     let freqs: Vec<f64> = pitches.iter().map(|x| x.frequency as f64).step_by(100).collect();
+    //     graph(&freqs, "Detected Frequencies".to_string());
+    // }
+
+    Ok(())
 }
 
 pub fn system_test() -> Result<(), anyhow::Error> {
