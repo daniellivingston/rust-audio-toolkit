@@ -1,3 +1,5 @@
+use cpal::{HostId, traits::{HostTrait, DeviceTrait}};
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
@@ -9,16 +11,31 @@ pub struct TemplateApp {
     #[serde(skip)]
     value: f32,
 
-    //#[serde(skip)]
-    //input_device: Something,
+    #[serde(skip)]
+    host: cpal::Host,
+
+    #[serde(skip)]
+    input_device: Option<cpal::Device>,
+
+    #[serde(skip)]
+    all_input_devices: Vec<cpal::Device>,
+
+    // temporary workaround until enum-like behavior is generated for input_device
+    input_device_name: String,
 }
 
 impl Default for TemplateApp {
     fn default() -> Self {
+        let host = cpal::default_host();
+        let all_input_devices: Vec<cpal::Device> = host.input_devices().unwrap().collect();
+
         Self {
-            // Example stuff:
             label: "Hello World!".to_owned(),
             value: 2.7,
+            host: host,
+            input_device: None,
+            all_input_devices: all_input_devices,
+            input_device_name: String::from("N/A"),
         }
     }
 }
@@ -38,12 +55,35 @@ impl TemplateApp {
         Default::default()
     }
 
-    fn toolbar(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+    fn query_input_devices(&self) -> Vec<cpal::Device> {
+        self.host.input_devices().unwrap().collect()
+    }
+
+    fn get_input_device_name(&self) -> String {
+        if let Some(device) = &self.input_device {
+            device
+                .name()
+                .unwrap_or(String::from("Unknown Device"))
+        } else {
+            String::from("N/A")
+        }
+    }
+
+    fn toolbar(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         egui::widgets::global_dark_light_mode_switch(ui);
 
         ui.separator();
 
-        ui.label("Sup");
+        egui::ComboBox::from_label("Input Device")
+            .selected_text(format!("{:?}", self.get_input_device_name()))
+            .show_ui(ui, |ui| {
+                self.all_input_devices.iter().for_each(|device| {
+                    ui.selectable_value(
+                        &mut self.input_device_name,
+                        device.name().unwrap_or(String::from("Unknown Device")),
+                        device.name().unwrap_or(String::from("Unknown Device")));
+                });
+            });
     }
 }
 
@@ -58,13 +98,8 @@ impl eframe::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         // let Self { label, value } = self;
 
-        // Examples of how to create different panels and windows.
-        // Pick whichever suits you.
-        // Tip: a good default choice is to just keep the `CentralPanel`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
-
         #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+        egui::TopBottomPanel::top("top_panel").show(&ctx, |ui| {
             // The top panel is often a good place for a menu bar:
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
@@ -75,7 +110,7 @@ impl eframe::App for TemplateApp {
             });
         });
 
-        egui::TopBottomPanel::top("wrap_app_top_bar").show(ctx, |ui| {
+        egui::TopBottomPanel::top("wrap_app_top_bar").show(&ctx, |ui| {
             egui::trace!(ui);
             ui.horizontal_wrapped(|ui| {
                 ui.visuals_mut().button_frame = false;
@@ -83,7 +118,7 @@ impl eframe::App for TemplateApp {
             });
         });
 
-        egui::SidePanel::left("side_panel").show(ctx, |ui| {
+        egui::SidePanel::left("side_panel").show(&ctx, |ui| {
             ui.heading("Side Panel");
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
@@ -101,9 +136,7 @@ impl eframe::App for TemplateApp {
             });
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            // The central panel the region left after adding TopPanel's and SidePanel's
-
+        egui::CentralPanel::default().show(&ctx, |ui| {
             ui.heading("eframe template");
             ui.hyperlink("https://github.com/emilk/eframe_template");
             ui.add(egui::github_link_file!(
@@ -112,17 +145,5 @@ impl eframe::App for TemplateApp {
             ));
             egui::warn_if_debug_build(ui);
         });
-
-        // egui::Window::new("Audio Configuration").show(ctx, |ui| {
-        //     ui.label("Windows can be moved by dragging them.");
-
-        //     egui::ComboBox::from_label("Input Device")
-        //         .selected_text(format!("{:?}", selected))
-        //         .show_ui(ui, |ui| {
-        //             ui.selectable_value(&mut selected, Enum::First, "First");
-        //             ui.selectable_value(&mut selected, Enum::Second, "Second");
-        //             ui.selectable_value(&mut selected, Enum::Third, "Third");
-        //         });
-        // });
     }
 }

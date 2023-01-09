@@ -57,7 +57,7 @@ enum Commands {
 }
 
 fn main() {
-    // Log to stdout (if ran with `RUST_LOG=debug`)
+    // Log to stdout (if run with `RUST_LOG=debug`)
     tracing_subscriber::fmt::init();
     debug!("Starting rta...");
 
