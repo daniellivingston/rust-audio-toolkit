@@ -4,4 +4,4 @@ pub mod device_audio;
 pub mod psarc;
 
 mod app;
-pub use app::TemplateApp;
+pub use app::App;

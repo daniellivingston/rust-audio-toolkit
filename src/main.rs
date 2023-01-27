@@ -66,11 +66,15 @@ fn main() {
 
     match args.command {
         Commands::Run { } => {
-            let native_options = eframe::NativeOptions::default();
+            let options = eframe::NativeOptions {
+                drag_and_drop_support: true,
+                initial_window_size: Some([1280.0, 1024.0].into()),
+                ..Default::default()
+            };
             eframe::run_native(
                 "RTA",
-                native_options,
-                Box::new(|cc| Box::new(rta::TemplateApp::new(cc))),
+                options,
+                Box::new(|cc| Box::new(rta::App::new(cc))),
             );
         }
         Commands::Read {
@@ -95,4 +99,3 @@ fn main() {
         }
     }
 }
-
