@@ -1,13 +1,20 @@
-use cpal::{HostId, traits::{HostTrait, DeviceTrait}};
+use egui::{
+    Response,
+    Color32,
+    plot::{Plot, Legend, PlotPoints, LineStyle, Line}
+};
 
 /// Peristent app state.
 #[derive(Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(default))]
-pub struct State { }
+pub struct State {
+    noise_gate: u64
+}
 
 pub struct App {
-    state: State
+    state: State,
+    frequency_plot: FrequencyPlot
 }
 
 impl App {
@@ -16,6 +23,7 @@ impl App {
         #[allow(unused_mut)]
         let mut slf = Self {
             state: State::default(),
+            frequency_plot: FrequencyPlot::default()
         };
 
         // Load previous app state (if any).
@@ -47,26 +55,28 @@ impl eframe::App for App {
         });
 
         egui::SidePanel::left("side_panel").show(&ctx, |ui| {
-            ui.heading("Side Panel");
+            self.side_panel(ui, frame);
         });
 
         egui::CentralPanel::default().show(&ctx, |ui| {
-            ui.heading("eframe template");
+            self.frequency_plot.ui(ui);
         });
     }
 }
 
 impl App {
+    fn side_panel(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        ui.heading("Frequency Analysis");
+        ui.add(egui::Slider::new(&mut self.state.noise_gate, 0..=100).text("Noise gate"));
+    }
+
     fn toolbar(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         ui.menu_button("File", |ui| {
             ui.set_min_width(200.0);
             ui.style_mut().wrap = Some(false);
 
-            if ui
-                .add(
-                    egui::Button::new("Quit")
-                )
-                .clicked()
+            if ui.add(egui::Button::new("Quit"))
+                 .clicked()
             {
                 frame.close();
             }
@@ -77,3 +87,40 @@ impl App {
         egui::widgets::global_dark_light_mode_switch(ui);
     }
 }
+
+// ----------------------------------------------------------------------------
+
+#[derive(PartialEq)]
+struct FrequencyPlot { }
+
+impl Default for FrequencyPlot {
+    fn default() -> Self {
+        Self { }
+    }
+}
+
+impl FrequencyPlot {
+    fn ui(&mut self, ui: &mut egui::Ui) -> Response {
+        ui.ctx().request_repaint();
+        ui.heading("Hello, Frequency Plot!");
+
+        Plot::new("frequency_plot")
+            .legend(Legend::default())
+            .show(ui, |plot_ui| {
+                let n = 50;
+                let pts: PlotPoints = (0..n)
+                    .map(|i| {
+                        let x = i as f64;
+                        [ x, x ]
+                    })
+                    .collect();
+
+                Line::new(pts)
+                    .color(Color32::from_rgb(100, 200, 100))
+                    .style(LineStyle::Solid)
+                    .name("line")
+            })
+            .response
+    }
+}
+
