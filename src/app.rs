@@ -1,7 +1,7 @@
 use egui::{
     Response,
     Color32,
-    plot::{Plot, Legend, PlotPoints, LineStyle, Line}
+    plot::{Plot, Legend, PlotPoints, LineStyle, Line}, Frame, Pos2, vec2, pos2
 };
 
 /// Peristent app state.
@@ -67,7 +67,18 @@ impl eframe::App for App {
 impl App {
     fn side_panel(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         ui.heading("Frequency Analysis");
-        ui.add(egui::Slider::new(&mut self.state.noise_gate, 0..=100).text("Noise gate"));
+
+        ui.separator();
+
+        ui.label("Noise Gate:");
+        ui.add(egui::Slider::new(&mut self.state.noise_gate, 0..=100));
+
+        ui.label("Input Device:");
+        ui.horizontal(|ui| {
+            ui.selectable_value(&mut self.frequency_plot.device, Enum::First, "First");
+            ui.selectable_value(&mut self.frequency_plot.device, Enum::Second, "Second");
+            ui.selectable_value(&mut self.frequency_plot.device, Enum::Third, "Third");
+        });
     }
 
     fn toolbar(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
@@ -90,37 +101,63 @@ impl App {
 
 // ----------------------------------------------------------------------------
 
-#[derive(PartialEq)]
-struct FrequencyPlot { }
+#[derive(Debug, PartialEq)]
+enum Enum {
+    First,
+    Second,
+    Third
+}
 
-impl Default for FrequencyPlot {
+impl Default for Enum {
     fn default() -> Self {
-        Self { }
+        Self::First
     }
+}
+
+#[derive(Default)]
+struct FrequencyPlot {
+    device: Enum
 }
 
 impl FrequencyPlot {
-    fn ui(&mut self, ui: &mut egui::Ui) -> Response {
-        ui.ctx().request_repaint();
-        ui.heading("Hello, Frequency Plot!");
+    fn ui(&mut self, ui: &mut egui::Ui) {
+        let color = if ui.visuals().dark_mode {
+            Color32::from_additive_luminance(196)
+        } else {
+            Color32::from_black_alpha(240)
+        };
 
-        Plot::new("frequency_plot")
-            .legend(Legend::default())
-            .show(ui, |plot_ui| {
-                let n = 50;
-                let pts: PlotPoints = (0..n)
-                    .map(|i| {
-                        let x = i as f64;
-                        [ x, x ]
-                    })
-                    .collect();
+        let notes = super::notes();
 
-                Line::new(pts)
-                    .color(Color32::from_rgb(100, 200, 100))
-                    .style(LineStyle::Solid)
-                    .name("line")
-            })
-            .response
+        Frame::canvas(ui.style()).show(ui, |ui| {
+            ui.ctx().request_repaint();
+
+            let (_id, rect) = ui.allocate_space(ui.available_size());
+            let to_screen = egui::emath::RectTransform::from_to(
+                egui::Rect::from_x_y_ranges(0.0..=1.0, -1.0..=1.0),
+                rect);
+
+            let time = ui.input().time;
+
+            let n = 120;
+            let speed = 1.5;
+            let mode = 2.0;
+
+            let mut shapes = vec![];
+
+            let points: Vec<Pos2> = (0..=n)
+                .map(|i| {
+                    let t = i as f64 / (n as f64);
+                    let amp = (time * speed * mode).sin() / mode;
+                    let y = amp * (t * std::f64::consts::TAU / 2.0 * mode).sin();
+                    to_screen * pos2(t as f32, y as f32)
+                })
+                .collect();
+
+            let thickness = 1.0 / mode as f32;
+            shapes.push(egui::epaint::Shape::line(points, egui::Stroke::new(thickness, color)));
+
+            ui.painter().extend(shapes);
+        });
     }
 }
-
