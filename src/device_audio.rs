@@ -9,6 +9,7 @@ use pitch_detection::{float::Float, Pitch};
 use std::sync::{Arc, Mutex};
 use hound;
 
+#[allow(dead_code)]
 fn graph(data: &Vec<f64>, caption: String) {
     println!("{}",
         rasciigraph::plot(
@@ -279,7 +280,19 @@ fn print_detected_pitches(audio: &Audio) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-use std::collections::HashSet;
+pub fn read_wav(path: &String) -> Result<Audio, anyhow::Error> {
+    let mut reader = hound::WavReader::open(path)?;
+
+    let spec = reader.spec();
+    let duration = std::time::Duration::from_secs((reader.duration() / spec.sample_rate) as u64).into();
+    let sample_rate = cpal::SampleRate(spec.sample_rate);
+    let channels = spec.channels as cpal::ChannelCount;
+    let samples: Vec<f32> = reader.samples::<i16>() // WARNING: i16 is ONLY valid for c3-major-scale-piano.wav
+                                  .map(|sample| sample.unwrap() as f32 / std::i16::MAX as f32)
+                                  .collect();
+
+    Ok(Audio::new(samples, duration, sample_rate, channels))
+}
 
 pub fn analyze_wav(path: std::path::PathBuf) -> Result<(), anyhow::Error> {
     let mut reader = hound::WavReader::open(&path)?;

@@ -1,8 +1,8 @@
 use egui::{
-    Response,
-    Color32,
-    plot::{Plot, Legend, PlotPoints, LineStyle, Line}, Frame, Pos2, vec2, pos2
+    Color32, Frame, Pos2, pos2
 };
+
+use super::read_wav;
 
 /// Peristent app state.
 #[derive(Default)]
@@ -14,16 +14,18 @@ pub struct State {
 
 pub struct App {
     state: State,
-    frequency_plot: FrequencyPlot
+    frequency_plot: FrequencyPlot,
+    picked_path: Option<String>,
 }
 
 impl App {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         #[allow(unused_mut)]
         let mut slf = Self {
             state: State::default(),
-            frequency_plot: FrequencyPlot::default()
+            frequency_plot: FrequencyPlot::default(),
+            picked_path: None
         };
 
         // Load previous app state (if any).
@@ -65,20 +67,40 @@ impl eframe::App for App {
 }
 
 impl App {
-    fn side_panel(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+    fn side_panel(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         ui.heading("Frequency Analysis");
+
+        ui.separator();
+
+        ui.label("Input Audio:");
+        ui.horizontal(|ui| {
+            ui.selectable_value(&mut self.frequency_plot.device, Enum::First, "Default (Demo)");
+            ui.selectable_value(&mut self.frequency_plot.device, Enum::Second, "Input Device");
+            ui.selectable_value(&mut self.frequency_plot.device, Enum::Third, "Audio File");
+        });
+
+        if ui.button("Open file...").clicked() {
+            if let Some(path) = rfd::FileDialog::new().pick_file() {
+                let picked_path = path.display().to_string();
+
+                let _audio = read_wav(&picked_path);
+                self.picked_path = Some(picked_path);
+            }
+        }
+
+        if let Some(picked_path) = &self.picked_path {
+            ui.horizontal(|ui| {
+                let filename = picked_path.split("/").last().unwrap_or("???");
+                ui.label("Selected file:");
+                ui.monospace(filename);
+            });
+        }
 
         ui.separator();
 
         ui.label("Noise Gate:");
         ui.add(egui::Slider::new(&mut self.state.noise_gate, 0..=100));
 
-        ui.label("Input Device:");
-        ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.frequency_plot.device, Enum::First, "First");
-            ui.selectable_value(&mut self.frequency_plot.device, Enum::Second, "Second");
-            ui.selectable_value(&mut self.frequency_plot.device, Enum::Third, "Third");
-        });
     }
 
     fn toolbar(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
@@ -127,7 +149,7 @@ impl FrequencyPlot {
             Color32::from_black_alpha(240)
         };
 
-        let notes = super::notes();
+        let _notes = super::notes();
 
         Frame::canvas(ui.style()).show(ui, |ui| {
             ui.ctx().request_repaint();
