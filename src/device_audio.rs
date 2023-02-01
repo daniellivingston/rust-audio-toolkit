@@ -45,6 +45,14 @@ impl Audio {
             channels: channels,
         }
     }
+
+    pub fn data(&self) -> &Vec<f32> {
+        &self.raw_data
+    }
+
+    pub fn duration(&self) -> &std::time::Duration {
+        &self.duration
+    }
 }
 
 pub fn system_overview() {

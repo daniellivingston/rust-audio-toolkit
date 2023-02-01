@@ -2,7 +2,7 @@ use egui::{
     Color32, Frame, Pos2, pos2
 };
 
-use super::read_wav;
+use crate::device_audio::{Audio, read_wav};
 
 /// Peristent app state.
 #[derive(Default)]
@@ -16,6 +16,7 @@ pub struct App {
     state: State,
     frequency_plot: FrequencyPlot,
     picked_path: Option<String>,
+    audio: Option<Audio>
 }
 
 impl App {
@@ -25,7 +26,8 @@ impl App {
         let mut slf = Self {
             state: State::default(),
             frequency_plot: FrequencyPlot::default(),
-            picked_path: None
+            picked_path: None,
+            audio: None
         };
 
         // Load previous app state (if any).
@@ -61,7 +63,7 @@ impl eframe::App for App {
         });
 
         egui::CentralPanel::default().show(&ctx, |ui| {
-            self.frequency_plot.ui(ui);
+            self.frequency_plot.ui(ui, &self.audio);
         });
     }
 }
@@ -83,8 +85,13 @@ impl App {
             if let Some(path) = rfd::FileDialog::new().pick_file() {
                 let picked_path = path.display().to_string();
 
-                let _audio = read_wav(&picked_path);
-                self.picked_path = Some(picked_path);
+                self.audio = if let Ok(audio) = read_wav(&picked_path) {
+                    self.picked_path = Some(picked_path);
+                    Some(audio)
+                } else {
+                    self.picked_path = None;
+                    None
+                };
             }
         }
 
@@ -142,7 +149,7 @@ struct FrequencyPlot {
 }
 
 impl FrequencyPlot {
-    fn ui(&mut self, ui: &mut egui::Ui) {
+    fn ui(&mut self, ui: &mut egui::Ui, audio: &Option<Audio>) {
         let color = if ui.visuals().dark_mode {
             Color32::from_additive_luminance(196)
         } else {
@@ -155,29 +162,31 @@ impl FrequencyPlot {
             ui.ctx().request_repaint();
 
             let (_id, rect) = ui.allocate_space(ui.available_size());
-            let to_screen = egui::emath::RectTransform::from_to(
-                egui::Rect::from_x_y_ranges(0.0..=1.0, -1.0..=1.0),
-                rect);
-
-            let time = ui.input().time;
-
-            let n = 120;
-            let speed = 1.5;
-            let mode = 2.0;
 
             let mut shapes = vec![];
 
-            let points: Vec<Pos2> = (0..=n)
-                .map(|i| {
-                    let t = i as f64 / (n as f64);
-                    let amp = (time * speed * mode).sin() / mode;
-                    let y = amp * (t * std::f64::consts::TAU / 2.0 * mode).sin();
-                    to_screen * pos2(t as f32, y as f32)
-                })
-                .collect();
+            if let Some(audio) = audio {
+                let xmin = 0.0;
+                let xmax = audio.duration().as_millis() as f32;
+                assert!(xmin < xmax);
 
-            let thickness = 1.0 / mode as f32;
-            shapes.push(egui::epaint::Shape::line(points, egui::Stroke::new(thickness, color)));
+                let ymin = audio.data().iter().fold(std::f32::MAX, |a,b| a.min(*b));
+                let ymax = audio.data().iter().fold(std::f32::MIN, |a,b| a.max(*b));
+                assert!(ymin < ymax);
+
+                let to_screen = egui::emath::RectTransform::from_to(
+                    egui::Rect::from_x_y_ranges(xmin..=xmax, ymin..=ymax),
+                    rect);
+
+                let points: Vec<Pos2> = audio.data()
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &x)| to_screen * pos2(i as f32, x))
+                    .collect();
+
+                let thickness = 1.0 / 2.0 as f32;
+                shapes.push(egui::epaint::Shape::line(points, egui::Stroke::new(thickness, color)));
+            }
 
             ui.painter().extend(shapes);
         });
