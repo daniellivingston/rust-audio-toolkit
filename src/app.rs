@@ -130,6 +130,8 @@ impl App {
 
 // ----------------------------------------------------------------------------
 
+use egui::plot::{Plot, PlotPoints, Line};
+
 #[derive(Debug, PartialEq)]
 enum Enum {
     First,
@@ -149,7 +151,18 @@ struct FrequencyPlot {
 }
 
 impl FrequencyPlot {
-    fn ui(&mut self, ui: &mut egui::Ui, audio: &Option<Audio>) {
+    fn pure_tone_fn() -> Line {
+        let values = PlotPoints::from_explicit_callback(
+            move |x| {
+                x.sin()
+            },
+            0.0..=1.0,
+            100
+        );
+        Line::new(values)
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui, audio: &Option<Audio>) -> egui::Response {
         let color = if ui.visuals().dark_mode {
             Color32::from_additive_luminance(196)
         } else {
@@ -158,6 +171,7 @@ impl FrequencyPlot {
 
         let _notes = super::notes();
 
+        #[cfg(feature = "NOCOMPILE")]
         Frame::canvas(ui.style()).show(ui, |ui| {
             ui.ctx().request_repaint();
 
@@ -190,5 +204,31 @@ impl FrequencyPlot {
 
             ui.painter().extend(shapes);
         });
+
+        Plot::new("freq_plot")
+            .show(ui, |plot_ui| {
+                if let Some(audio) = audio {
+                    let max_pts = 100;
+                    let step = audio.data().len() as usize / max_pts;
+
+                    let points: Vec<_> = audio.data()
+                        .iter()
+                        .enumerate()
+                        .step_by(step)
+                        .map(|(i, &y)| [i as f64, y as f64])
+                        .collect();
+
+                    plot_ui.line(
+                        Line::new(PlotPoints::new(points))
+                            .color(color)
+                    )
+                } else {
+                    plot_ui.line(
+                        FrequencyPlot::pure_tone_fn()
+                            .color(color)
+                    )
+                }
+            })
+            .response
     }
 }
