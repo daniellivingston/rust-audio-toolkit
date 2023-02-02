@@ -24,20 +24,20 @@ fn graph(data: &Vec<f64>, caption: String) {
 
 #[allow(unused)]
 #[derive(Debug)]
-pub struct Audio {
-    raw_data: Vec<f32>,
+pub struct Audio<T> {
+    raw_data: Vec<T>,
     duration: std::time::Duration,
     sample_rate: cpal::SampleRate,
     channels: cpal::ChannelCount,
 }
 
-impl Audio {
+impl<T> Audio<T> {
     pub fn new(
-        data: Vec<f32>,
+        data: Vec<T>,
         duration: std::time::Duration,
         sample_rate: cpal::SampleRate,
         channels: cpal::ChannelCount,
-    ) -> Audio {
+    ) -> Audio<T> {
         Audio {
             raw_data: data,
             duration: duration,
@@ -46,13 +46,57 @@ impl Audio {
         }
     }
 
-    pub fn data(&self) -> &Vec<f32> {
+    pub fn data(&self) -> &Vec<T> {
         &self.raw_data
     }
 
     pub fn duration(&self) -> &std::time::Duration {
         &self.duration
     }
+    /*
+        let spec = reader.spec();
+        let duration = std::time::Duration::from_secs((reader.duration() / spec.sample_rate) as u64).into();
+        let sample_rate = cpal::SampleRate(spec.sample_rate);
+        let channels = spec.channels as cpal::ChannelCount;
+
+        let samples: Vec<f32> = reader.samples::<i16>() // WARNING: i16 is ONLY valid for c3-major-scale-piano.wav
+                                      .map(|sample| sample.unwrap() as f32 / std::i16::MAX as f32)
+                                      .collect();
+
+        Ok(Audio::new(samples, duration, sample_rate, channels))
+        */
+
+    ///////////////////////////////////////////////////
+    // pub fn fft(&self) -> Result<Vec<f64>> {
+    // --> https://siciarz.net/24-days-rust-hound/
+
+    pub fn from_wav(path: &String) -> Result<Audio<i32>, anyhow::Error> {
+        let mut reader: hound::WavReader<_> = hound::WavReader::open(path)?;
+        let spec = reader.spec();
+
+        println!("spec: {:?}", spec);
+
+        match (spec.bits_per_sample, spec.sample_format) {
+            (16, hound::SampleFormat::Int) |
+            (32, hound::SampleFormat::Int) => {
+                let samples = reader
+                                            .samples::<i16>()
+                                            .map(|x| x.unwrap() as i32)
+                                            .collect();
+
+                Ok(Audio::new(
+                    samples,
+                    std::time::Duration::from_secs((reader.duration() / spec.sample_rate) as u64).into(),
+                    cpal::SampleRate(spec.sample_rate),
+                    spec.channels as cpal::ChannelCount,
+                ))
+            }
+            _ => {
+                unreachable!()
+            }
+        }
+    }
+
 }
 
 pub fn system_overview() {
@@ -90,7 +134,7 @@ pub fn system_overview() {
     }
 }
 
-fn capture_input(duration: std::time::Duration) -> Result<Audio, anyhow::Error> {
+fn capture_input(duration: std::time::Duration) -> Result<Audio<f32>, anyhow::Error> {
     let device = cpal::default_host()
         .default_input_device()
         .expect("no input device available");
@@ -147,7 +191,7 @@ fn capture_input(duration: std::time::Duration) -> Result<Audio, anyhow::Error> 
     Ok(Audio::new(buffer, duration, sample_rate, channels))
 }
 
-fn play_buffer(audio: Audio) -> Result<(), anyhow::Error> {
+fn play_buffer(audio: Audio<f32>) -> Result<(), anyhow::Error> {
     let device = cpal::default_host()
         .default_output_device()
         .expect("no output device available");
@@ -213,7 +257,7 @@ fn get_chunk<T: Float>(signal: &[T], start: usize, window: usize, output: &mut [
     }
 }
 
-fn get_pitches(audio: &Audio) -> Vec<Pitch<f32>> {
+fn get_pitches(audio: &Audio<f32>) -> Vec<Pitch<f32>> {
     use pitch_detection::detector::mcleod::McLeodDetector;
     use pitch_detection::detector::PitchDetector;
     use pitch_detection::utils::buffer::new_real_buffer;
@@ -239,7 +283,7 @@ fn get_pitches(audio: &Audio) -> Vec<Pitch<f32>> {
     .collect()
 }
 
-fn print_detected_pitches(audio: &Audio) -> Result<(), anyhow::Error> {
+fn print_detected_pitches(audio: &Audio<f32>) -> Result<(), anyhow::Error> {
     use pitch_detection::detector::mcleod::McLeodDetector;
     use pitch_detection::detector::PitchDetector;
     use pitch_detection::utils::buffer::new_real_buffer;
@@ -288,13 +332,14 @@ fn print_detected_pitches(audio: &Audio) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-pub fn read_wav(path: &String) -> Result<Audio, anyhow::Error> {
+pub fn read_wav(path: &String) -> Result<Audio<f32>, anyhow::Error> {
     let mut reader = hound::WavReader::open(path)?;
 
     let spec = reader.spec();
     let duration = std::time::Duration::from_secs((reader.duration() / spec.sample_rate) as u64).into();
     let sample_rate = cpal::SampleRate(spec.sample_rate);
     let channels = spec.channels as cpal::ChannelCount;
+
     let samples: Vec<f32> = reader.samples::<i16>() // WARNING: i16 is ONLY valid for c3-major-scale-piano.wav
                                   .map(|sample| sample.unwrap() as f32 / std::i16::MAX as f32)
                                   .collect();

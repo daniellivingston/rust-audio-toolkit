@@ -12,9 +12,8 @@
                 "args": [
                     "run",
                     "--",
-                    "read",
-                    "--analyze",
-                    "${workspaceFolder}/bin/wav/c3-major-scale-piano.wav"
+                    "run",
+                    //"${workspaceFolder}/bin/wav/c3-major-scale-piano.wav"
                 ]
             },
         },

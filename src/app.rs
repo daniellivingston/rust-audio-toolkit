@@ -16,7 +16,7 @@ pub struct App {
     state: State,
     frequency_plot: FrequencyPlot,
     picked_path: Option<String>,
-    audio: Option<Audio>
+    audio: Option<Audio<i32>>
 }
 
 impl App {
@@ -85,7 +85,7 @@ impl App {
             if let Some(path) = rfd::FileDialog::new().pick_file() {
                 let picked_path = path.display().to_string();
 
-                self.audio = if let Ok(audio) = read_wav(&picked_path) {
+                self.audio = if let Ok(audio) = Audio::<i32>::from_wav(&picked_path) {
                     self.picked_path = Some(picked_path);
                     Some(audio)
                 } else {
@@ -101,6 +101,13 @@ impl App {
                 ui.label("Selected file:");
                 ui.monospace(filename);
             });
+
+            ui.separator();
+
+            ui.label("Max points:");
+            ui.add(egui::Slider::new(
+                   &mut self.frequency_plot.max_pts,
+                   100..=self.audio.as_ref().unwrap().data().len()));
         }
 
         ui.separator();
@@ -145,9 +152,18 @@ impl Default for Enum {
     }
 }
 
-#[derive(Default)]
 struct FrequencyPlot {
-    device: Enum
+    device: Enum,
+    max_pts: usize,
+}
+
+impl Default for FrequencyPlot {
+    fn default() -> Self {
+        Self {
+            device: Enum::default(),
+            max_pts: 10_000,
+        }
+    }
 }
 
 impl FrequencyPlot {
@@ -162,7 +178,7 @@ impl FrequencyPlot {
         Line::new(values)
     }
 
-    fn ui(&mut self, ui: &mut egui::Ui, audio: &Option<Audio>) -> egui::Response {
+    fn ui(&mut self, ui: &mut egui::Ui, audio: &Option<Audio<i32>>) -> egui::Response {
         let color = if ui.visuals().dark_mode {
             Color32::from_additive_luminance(196)
         } else {
@@ -171,45 +187,10 @@ impl FrequencyPlot {
 
         let _notes = super::notes();
 
-        #[cfg(feature = "NOCOMPILE")]
-        Frame::canvas(ui.style()).show(ui, |ui| {
-            ui.ctx().request_repaint();
-
-            let (_id, rect) = ui.allocate_space(ui.available_size());
-
-            let mut shapes = vec![];
-
-            if let Some(audio) = audio {
-                let xmin = 0.0;
-                let xmax = audio.duration().as_millis() as f32;
-                assert!(xmin < xmax);
-
-                let ymin = audio.data().iter().fold(std::f32::MAX, |a,b| a.min(*b));
-                let ymax = audio.data().iter().fold(std::f32::MIN, |a,b| a.max(*b));
-                assert!(ymin < ymax);
-
-                let to_screen = egui::emath::RectTransform::from_to(
-                    egui::Rect::from_x_y_ranges(xmin..=xmax, ymin..=ymax),
-                    rect);
-
-                let points: Vec<Pos2> = audio.data()
-                    .iter()
-                    .enumerate()
-                    .map(|(i, &x)| to_screen * pos2(i as f32, x))
-                    .collect();
-
-                let thickness = 1.0 / 2.0 as f32;
-                shapes.push(egui::epaint::Shape::line(points, egui::Stroke::new(thickness, color)));
-            }
-
-            ui.painter().extend(shapes);
-        });
-
         Plot::new("freq_plot")
             .show(ui, |plot_ui| {
                 if let Some(audio) = audio {
-                    let max_pts = 100;
-                    let step = audio.data().len() as usize / max_pts;
+                    let step = audio.data().len() as usize / self.max_pts;
 
                     let points: Vec<_> = audio.data()
                         .iter()
