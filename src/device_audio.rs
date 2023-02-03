@@ -70,6 +70,26 @@ impl<T> Audio<T> {
     // pub fn fft(&self) -> Result<Vec<f64>> {
     // --> https://siciarz.net/24-days-rust-hound/
 
+    pub fn from_freq(freq_hz: f64, duration: f64) -> Result<Audio<i32>, anyhow::Error> {
+        use std::f64::consts::PI;
+
+        let sample_rate = cpal::SampleRate(44100);
+        let channels = 1;
+        let duration = std::time::Duration::from_secs_f64(duration);
+
+        let amp = 10_000.0; // amplitude
+
+        let samples: Vec<i32> =
+            (0..(sample_rate.0 as f64 * duration.as_secs_f64()) as i32)
+                .map(|i| {
+                    let t = (i / sample_rate.0 as i32) as f64;
+                    (amp * (2.0 * PI * freq_hz * t).sin()) as i32
+                })
+                .collect();
+
+        Ok(Audio::new(samples, duration, sample_rate, channels))
+    }
+
     pub fn from_wav(path: &String) -> Result<Audio<i32>, anyhow::Error> {
         let mut reader: hound::WavReader<_> = hound::WavReader::open(path)?;
         let spec = reader.spec();

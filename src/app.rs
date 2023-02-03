@@ -1,6 +1,7 @@
 use egui::{
     Color32, Frame, Pos2, pos2
 };
+use rasciigraph::plot;
 
 use crate::device_audio::{Audio, read_wav};
 
@@ -56,6 +57,9 @@ impl eframe::App for App {
                 ui.visuals_mut().button_frame = false;
                 self.toolbar(ui, frame);
             });
+
+            ui.separator();
+            ui.heading("Frequency Analysis");
         });
 
         egui::SidePanel::left("side_panel").show(&ctx, |ui| {
@@ -63,58 +67,48 @@ impl eframe::App for App {
         });
 
         egui::CentralPanel::default().show(&ctx, |ui| {
-            self.frequency_plot.ui(ui, &self.audio);
+            self.frequency_plot.ui(ui);
         });
     }
 }
 
 impl App {
     fn side_panel(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        ui.heading("Frequency Analysis");
+        ui.vertical_centered_justified(|ui| {
+            ui.menu_button(egui::RichText::from("Import Audio +").size(15.0), |ui| {
+                if ui.button("Open file...").clicked() {
+                    if let Some(path) = rfd::FileDialog::new().pick_file() {
+                        let picked_path = path.display().to_string();
 
-        ui.separator();
+                        if let Ok(audio) = Audio::<i32>::from_freq(400.0, 1.0) {//Audio::<i32>::from_wav(&picked_path) {
+                            let filename = picked_path.split("/").last().unwrap_or("???");
+                            self.frequency_plot.add(audio, filename);
+                        }
+                    }
+                }
 
-        ui.label("Input Audio:");
-        ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.frequency_plot.device, Enum::First, "Default (Demo)");
-            ui.selectable_value(&mut self.frequency_plot.device, Enum::Second, "Input Device");
-            ui.selectable_value(&mut self.frequency_plot.device, Enum::Third, "Audio File");
+                if ui.button("Generate sine wave...").clicked() {
+                    if let Ok(audio) = Audio::<i32>::from_freq(400.0, 1.0) {
+                        self.frequency_plot.add(audio, "440.0 Hz @ 1.0 s");
+                    }
+                }
+            });
         });
 
-        if ui.button("Open file...").clicked() {
-            if let Some(path) = rfd::FileDialog::new().pick_file() {
-                let picked_path = path.display().to_string();
+        ui.separator();
 
-                self.audio = if let Ok(audio) = Audio::<i32>::from_wav(&picked_path) {
-                    self.picked_path = Some(picked_path);
-                    Some(audio)
-                } else {
-                    self.picked_path = None;
-                    None
-                };
-            }
-        }
-
-        if let Some(picked_path) = &self.picked_path {
-            ui.horizontal(|ui| {
-                let filename = picked_path.split("/").last().unwrap_or("???");
-                ui.label("Selected file:");
-                ui.monospace(filename);
-            });
-
-            ui.separator();
-
-            ui.label("Max points:");
-            ui.add(egui::Slider::new(
-                   &mut self.frequency_plot.max_pts,
-                   100..=self.audio.as_ref().unwrap().data().len()));
-        }
+        ui.label("Max points:");
+        ui.add(egui::Slider::new(
+               &mut self.frequency_plot.max_pts,
+               100..=20_000));
 
         ui.separator();
 
-        ui.label("Noise Gate:");
-        ui.add(egui::Slider::new(&mut self.state.noise_gate, 0..=100));
-
+        self.frequency_plot.lines.iter().for_each(|line| {
+            // ui.checkbox(&mut line.enabled, text);
+            ui.monospace(line.name.clone());
+            ui.separator();
+        });
     }
 
     fn toolbar(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
@@ -155,6 +149,29 @@ impl Default for Enum {
 struct FrequencyPlot {
     device: Enum,
     max_pts: usize,
+    lines: Vec<AudioPlot>,
+}
+
+struct AudioPlot {
+    // audio: Audio<i32>,
+    points: Vec<[f64; 2]>,
+    name: String
+
+}
+
+impl AudioPlot {
+    pub fn new(audio: Audio<i32>, name: String) -> Self {
+        let points: Vec<_> = audio.data()
+                .iter()
+                .enumerate()
+                .map(|(i, y)| [i as f64, *y as f64])
+                .collect();
+
+        Self {
+            points: points,
+            name: name
+        }
+    }
 }
 
 impl Default for FrequencyPlot {
@@ -162,6 +179,7 @@ impl Default for FrequencyPlot {
         Self {
             device: Enum::default(),
             max_pts: 10_000,
+            lines: Vec::default()
         }
     }
 }
@@ -178,7 +196,11 @@ impl FrequencyPlot {
         Line::new(values)
     }
 
-    fn ui(&mut self, ui: &mut egui::Ui, audio: &Option<Audio<i32>>) -> egui::Response {
+    pub fn add(&mut self, audio: Audio<i32>, name: &str) {
+        self.lines.push(AudioPlot::new(audio, String::from(name)));
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
         let color = if ui.visuals().dark_mode {
             Color32::from_additive_luminance(196)
         } else {
@@ -189,26 +211,13 @@ impl FrequencyPlot {
 
         Plot::new("freq_plot")
             .show(ui, |plot_ui| {
-                if let Some(audio) = audio {
-                    let step = audio.data().len() as usize / self.max_pts;
+                // plot_ui.set_plot_bounds(egui::plot::PlotBounds::from_min_max([0.0, 0.0], [1.0, 1.0]));
+                //     let step = audio.data().len() as usize / self.max_pts;
 
-                    let points: Vec<_> = audio.data()
-                        .iter()
-                        .enumerate()
-                        .step_by(step)
-                        .map(|(i, &y)| [i as f64, y as f64])
-                        .collect();
-
-                    plot_ui.line(
-                        Line::new(PlotPoints::new(points))
-                            .color(color)
-                    )
-                } else {
-                    plot_ui.line(
-                        FrequencyPlot::pure_tone_fn()
-                            .color(color)
-                    )
-                }
+                self.lines.iter().for_each(|line| {
+                    let pts = PlotPoints::new(line.points.iter().step_by(100).map(|&xy| [xy[0], xy[1]]).collect());
+                    plot_ui.line(Line::new(pts));
+                });
             })
             .response
     }
