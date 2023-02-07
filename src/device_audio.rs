@@ -50,6 +50,15 @@ impl<T> Audio<T> {
         &self.raw_data
     }
 
+    pub fn fft(&self) {
+        use rustfft::{FftPlanner, num_complex::Complex};
+        let mut planner = FftPlanner::new();
+        let fft = planner.plan_fft_forward(1234);
+        let mut buffer = vec![Complex{ re: 0.0f32, im: 0.0f32}; 1234];
+        fft.process(&mut buffer);
+        println!("done: {}", buffer.len());
+    }
+
     pub fn duration(&self) -> &std::time::Duration {
         &self.duration
     }

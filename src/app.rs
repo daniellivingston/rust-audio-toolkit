@@ -209,12 +209,20 @@ impl FrequencyPlot {
 
         let _notes = super::notes();
 
-        Plot::new("freq_plot")
-            .show(ui, |plot_ui| {
-                self.lines.iter().for_each(|line| {
-                    let pts = PlotPoints::new(line.points.iter().step_by(100).map(|&xy| [xy[0], xy[1]]).collect());
-                    plot_ui.line(Line::new(pts));
-                });
+        egui::Grid::new("freq_plot_grid")
+            .num_columns(0)
+            .show(ui, |ui| {
+                Plot::new("freq_plot")
+                    .show(ui, |plot_ui| {
+                        self.lines.iter().for_each(|line| {
+                            let pts = PlotPoints::new(line.points.iter().step_by(100).map(|&xy| [xy[0], xy[1]]).collect());
+                            plot_ui.line(Line::new(pts));
+                        });
+                    });
+                ui.end_row();
+
+                ui.label("Hello world");
+                ui.end_row();
             })
             .response
     }

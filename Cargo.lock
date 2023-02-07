@@ -2109,6 +2109,7 @@ dependencies = [
  "pretty_env_logger",
  "rasciigraph",
  "rfd",
+ "rustfft",
  "serde",
  "tracing-subscriber",
 ]
