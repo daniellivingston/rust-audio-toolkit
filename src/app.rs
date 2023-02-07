@@ -80,7 +80,7 @@ impl App {
                     if let Some(path) = rfd::FileDialog::new().pick_file() {
                         let picked_path = path.display().to_string();
 
-                        if let Ok(audio) = Audio::<i32>::from_freq(400.0, 1.0) {//Audio::<i32>::from_wav(&picked_path) {
+                        if let Ok(audio) = Audio::<i32>::from_wav(&picked_path) {
                             let filename = picked_path.split("/").last().unwrap_or("???");
                             self.frequency_plot.add(audio, filename);
                         }
@@ -211,9 +211,6 @@ impl FrequencyPlot {
 
         Plot::new("freq_plot")
             .show(ui, |plot_ui| {
-                // plot_ui.set_plot_bounds(egui::plot::PlotBounds::from_min_max([0.0, 0.0], [1.0, 1.0]));
-                //     let step = audio.data().len() as usize / self.max_pts;
-
                 self.lines.iter().for_each(|line| {
                     let pts = PlotPoints::new(line.points.iter().step_by(100).map(|&xy| [xy[0], xy[1]]).collect());
                     plot_ui.line(Line::new(pts));

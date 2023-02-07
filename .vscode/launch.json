@@ -5,26 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Exec",
             "type": "lldb",
             "request": "launch",
-            "cargo": {
-                "args": [
-                    "run",
-                    "--",
-                    "run",
-                    //"${workspaceFolder}/bin/wav/c3-major-scale-piano.wav"
-                ]
-            },
-        },
-        {
-            "name": "Python: Current File",
-            "type": "python",
-            "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}/realtime-audio-rs/scripts/",
-            "justMyCode": true,
+            "name": "Debug 'RTA'",
+            "program": "${workspaceFolder}/target/debug/rta",
+            "args": ["run"],
+            "cwd": "${workspaceFolder}",
+            "sourceMap": {},
+            "sourceLanguages": [
+                "rust"
+            ],
+            // "preLaunchTask": ["rust: cargo build"]
         }
-    ]
+    ],
 }
