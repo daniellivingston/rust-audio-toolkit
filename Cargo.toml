@@ -33,6 +33,7 @@ pretty_env_logger = "0.4"
 log = "0.4"
 
 rasciigraph = "0.1.1" # dev dependency; temporary
+num-traits = "0.2.15"
 
 # native-only dependencies:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

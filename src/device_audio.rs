@@ -1,4 +1,7 @@
+use num_traits::{FromPrimitive, cast};
 use rasciigraph; // temporary
+
+use rustfft::{FftPlanner, num_complex::Complex};
 
 use cpal::{
     platform::HostId,
@@ -31,7 +34,7 @@ pub struct Audio<T> {
     channels: cpal::ChannelCount,
 }
 
-impl<T> Audio<T> {
+impl<T: FromPrimitive + num_traits::NumCast + Copy> Audio<T> {
     pub fn new(
         data: Vec<T>,
         duration: std::time::Duration,
@@ -50,13 +53,31 @@ impl<T> Audio<T> {
         &self.raw_data
     }
 
-    pub fn fft(&self) {
-        use rustfft::{FftPlanner, num_complex::Complex};
-        let mut planner = FftPlanner::new();
-        let fft = planner.plan_fft_forward(1234);
-        let mut buffer = vec![Complex{ re: 0.0f32, im: 0.0f32}; 1234];
-        fft.process(&mut buffer);
-        println!("done: {}", buffer.len());
+    /// Compute the Fast-Fourier Transform (FFT) of the audio data.
+    /// Method taken from Z. Siciarz: <https://zsiciarz.github.io/24daysofrust/book/vol2/day2.html>
+    pub fn fft(&self) -> Vec<Complex<f32>> {
+        let num_samples = self.raw_data.len();
+
+        let mut fft = FftPlanner::new()
+            .plan_fft_forward(num_samples);
+
+        let mut signal = self.data()
+            .iter()
+            .map(|x| Complex{ re: cast::<T, f32>(*x).unwrap(), im: 0.0f32 })
+            .collect::<Vec<_>>();
+
+        /* * * * * * * DEBUG * * * * * * * */
+        {
+            let mut spectrum = signal.clone();
+            let max_peak = spectrum.iter()
+                .take(num_samples / 2)
+                .enumerate()
+                .max_by_key(|&(_, freq)| freq.norm() as u32);
+        }
+        /* * * * * * * DEBUG * * * * * * * */
+
+        fft.process(&mut signal);
+        signal
     }
 
     pub fn duration(&self) -> &std::time::Duration {
