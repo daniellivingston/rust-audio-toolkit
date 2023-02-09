@@ -67,7 +67,24 @@ impl eframe::App for App {
         });
 
         egui::CentralPanel::default().show(&ctx, |ui| {
-            self.frequency_plot.ui(ui);
+            ui.vertical(|ui| {
+                let plot_height = ui.available_size().y / 2.0;
+
+                Plot::new("linked_axis_1")
+                    .data_aspect(1.0)
+                    .height(0.7 * plot_height)
+                    .show(ui, |ui| {
+                        ui.line(Line::new(PlotPoints::from_explicit_callback(
+                            move |x| x.sin(),
+                            ..,
+                            100,
+                        )))
+                    });
+
+                ui.separator();
+
+                self.frequency_plot.ui(ui, Some(0.3 * plot_height));
+            });
         });
     }
 }
@@ -146,12 +163,6 @@ impl Default for Enum {
     }
 }
 
-struct FrequencyPlot {
-    device: Enum,
-    max_pts: usize,
-    lines: Vec<AudioPlot>,
-}
-
 struct AudioPlot {
     // audio: Audio<i32>,
     points: Vec<[f64; 2]>,
@@ -174,6 +185,12 @@ impl AudioPlot {
     }
 }
 
+struct FrequencyPlot {
+    device: Enum,
+    max_pts: usize,
+    lines: Vec<AudioPlot>,
+}
+
 impl Default for FrequencyPlot {
     fn default() -> Self {
         Self {
@@ -185,44 +202,18 @@ impl Default for FrequencyPlot {
 }
 
 impl FrequencyPlot {
-    fn pure_tone_fn() -> Line {
-        let values = PlotPoints::from_explicit_callback(
-            move |x| {
-                x.sin()
-            },
-            0.0..=1.0,
-            100
-        );
-        Line::new(values)
-    }
-
     pub fn add(&mut self, audio: Audio<i32>, name: &str) {
         self.lines.push(AudioPlot::new(audio, String::from(name)));
     }
 
-    fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
-        let color = if ui.visuals().dark_mode {
-            Color32::from_additive_luminance(196)
-        } else {
-            Color32::from_black_alpha(240)
-        };
-
-        let _notes = super::notes();
-
-        egui::Grid::new("freq_plot_grid")
-            .num_columns(0)
-            .show(ui, |ui| {
-                Plot::new("freq_plot")
-                    .show(ui, |plot_ui| {
-                        self.lines.iter().for_each(|line| {
-                            let pts = PlotPoints::new(line.points.iter().step_by(100).map(|&xy| [xy[0], xy[1]]).collect());
-                            plot_ui.line(Line::new(pts));
-                        });
-                    });
-                ui.end_row();
-
-                ui.label("Hello world");
-                ui.end_row();
+    fn ui(&mut self, ui: &mut egui::Ui, height: Option<f32>) -> egui::Response {
+        Plot::new("freq_plot")
+            .height(height.unwrap_or(200.0))
+            .show(ui, |plot_ui| {
+                self.lines.iter().for_each(|line| {
+                    let pts = PlotPoints::new(line.points.iter().step_by(100).map(|&xy| [xy[0], xy[1]]).collect());
+                    plot_ui.line(Line::new(pts));
+                });
             })
             .response
     }
