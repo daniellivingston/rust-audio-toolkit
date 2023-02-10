@@ -55,29 +55,22 @@ impl<T: FromPrimitive + num_traits::NumCast + Copy> Audio<T> {
 
     /// Compute the Fast-Fourier Transform (FFT) of the audio data.
     /// Method taken from Z. Siciarz: <https://zsiciarz.github.io/24daysofrust/book/vol2/day2.html>
-    pub fn fft(&self) -> Vec<Complex<f32>> {
+    pub fn fft(&self) -> Vec<f32> {
         let num_samples = self.raw_data.len();
 
-        let mut fft = FftPlanner::new()
-            .plan_fft_forward(num_samples);
+        let fft = FftPlanner::new().plan_fft_forward(num_samples);
 
         let mut signal = self.data()
             .iter()
             .map(|x| Complex{ re: cast::<T, f32>(*x).unwrap(), im: 0.0f32 })
             .collect::<Vec<_>>();
 
-        /* * * * * * * DEBUG * * * * * * * */
-        {
-            let mut spectrum = signal.clone();
-            let max_peak = spectrum.iter()
-                .take(num_samples / 2)
-                .enumerate()
-                .max_by_key(|&(_, freq)| freq.norm() as u32);
-        }
-        /* * * * * * * DEBUG * * * * * * * */
-
         fft.process(&mut signal);
-        signal
+
+        signal.iter()
+            //.take(num_samples / 2)
+            .map(|x| x.norm())
+            .collect()
     }
 
     pub fn duration(&self) -> &std::time::Duration {

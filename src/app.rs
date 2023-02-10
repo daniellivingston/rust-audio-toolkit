@@ -67,24 +67,7 @@ impl eframe::App for App {
         });
 
         egui::CentralPanel::default().show(&ctx, |ui| {
-            ui.vertical(|ui| {
-                let plot_height = ui.available_size().y / 2.0;
-
-                Plot::new("linked_axis_1")
-                    .data_aspect(1.0)
-                    .height(0.7 * plot_height)
-                    .show(ui, |ui| {
-                        ui.line(Line::new(PlotPoints::from_explicit_callback(
-                            move |x| x.sin(),
-                            ..,
-                            100,
-                        )))
-                    });
-
-                ui.separator();
-
-                self.frequency_plot.ui(ui, Some(0.3 * plot_height));
-            });
+            self.frequency_plot.ui(ui);
         });
     }
 }
@@ -166,12 +149,13 @@ impl Default for Enum {
 struct AudioPlot {
     // audio: Audio<i32>,
     points: Vec<[f64; 2]>,
-    name: String
-
+    name: String,
+    fft: Vec<f32>
 }
 
 impl AudioPlot {
     pub fn new(audio: Audio<i32>, name: String) -> Self {
+        let fft = audio.fft();
         let points: Vec<_> = audio.data()
                 .iter()
                 .enumerate()
@@ -180,7 +164,8 @@ impl AudioPlot {
 
         Self {
             points: points,
-            name: name
+            name: name,
+            fft: fft
         }
     }
 }
@@ -206,15 +191,44 @@ impl FrequencyPlot {
         self.lines.push(AudioPlot::new(audio, String::from(name)));
     }
 
-    fn ui(&mut self, ui: &mut egui::Ui, height: Option<f32>) -> egui::Response {
-        Plot::new("freq_plot")
-            .height(height.unwrap_or(200.0))
-            .show(ui, |plot_ui| {
-                self.lines.iter().for_each(|line| {
-                    let pts = PlotPoints::new(line.points.iter().step_by(100).map(|&xy| [xy[0], xy[1]]).collect());
-                    plot_ui.line(Line::new(pts));
+    fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
+        ui.vertical(|ui| {
+            let plot_height = 0.7 * ui.available_size().y;
+
+            let step = 100;
+
+            Plot::new("fft_plot")
+                .height(plot_height)
+                .show(ui, |plot_ui| {
+                    self.lines.iter().for_each(|line| {
+                        let pts: Vec<_> = line
+                            .fft
+                            .iter()
+                            .step_by(step)
+                            .enumerate()
+                            .map(|(i, &y)| [(i * step) as f64, y as f64])
+                            .collect();
+                        let pts = PlotPoints::new(pts);
+                        plot_ui.line(Line::new(pts));
+                    });
                 });
-            })
-            .response
+
+            ui.separator();
+
+            Plot::new("freq_plot")
+                .show(ui, |plot_ui| {
+                    self.lines.iter().for_each(|line| {
+                        let pts = line
+                            .points
+                            .iter()
+                            .step_by(100)
+                            .map(|&xy| [xy[0], xy[1]])
+                            .collect();
+                        let pts = PlotPoints::new(pts);
+                        plot_ui.line(Line::new(pts));
+                    });
+                });
+        })
+        .response
     }
 }
