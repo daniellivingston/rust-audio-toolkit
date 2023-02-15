@@ -1,12 +1,16 @@
-# RTA
+# RAT: The Rust Audio Toolkit #
 
-#### *Real-time Audio: Cross-platform Rust dynamic audio project*
+[![CI](https://github.com/daniellivingston/rust-audio-toolkit/actions/workflows/rust.yml/badge.svg)](https://github.com/daniellivingston/realtime-audio-rs/actions/workflows/rust.yml)
 
-[![Build Status](https://github.com/daniellivingston/realtime-audio-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/daniellivingston/realtime-audio-rs/actions/workflows/rust.yml)
+*Rust Audio Toolkit* (RAT) is a high-performance, low-latency library for advanced audio processing and analysis.
 
-This project is an attempt to build a high-performance, high-quality music practicing tool.
+## Demo
 
-## Usage
+To test out the functionality of RAT in a GUI application, run
+
+```sh
+cargo run --release -p rat-ui
+```
 
 ### PSARC Parsing
 
