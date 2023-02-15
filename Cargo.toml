@@ -22,6 +22,7 @@ hound = "3.5"
 cpal = "0.14"
 
 # Audio analysis
+rustfft = "6.1.0"
 pitch-detection = "0.3.0"
 anyhow = "1.0"
 binrw = "0.10"
@@ -32,6 +33,7 @@ pretty_env_logger = "0.4"
 log = "0.4"
 
 rasciigraph = "0.1.1" # dev dependency; temporary
+num-traits = "0.2.15"
 
 # native-only dependencies:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

@@ -10,7 +10,6 @@ use crate::device_audio::{Audio, read_wav};
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(default))]
 pub struct State {
-    noise_gate: u64
 }
 
 pub struct App {
@@ -133,34 +132,16 @@ impl App {
 
 use egui::plot::{Plot, PlotPoints, Line};
 
-#[derive(Debug, PartialEq)]
-enum Enum {
-    First,
-    Second,
-    Third
-}
-
-impl Default for Enum {
-    fn default() -> Self {
-        Self::First
-    }
-}
-
-struct FrequencyPlot {
-    device: Enum,
-    max_pts: usize,
-    lines: Vec<AudioPlot>,
-}
-
 struct AudioPlot {
     // audio: Audio<i32>,
     points: Vec<[f64; 2]>,
-    name: String
-
+    name: String,
+    fft: Vec<f32>
 }
 
 impl AudioPlot {
     pub fn new(audio: Audio<i32>, name: String) -> Self {
+        let fft = audio.fft();
         let points: Vec<_> = audio.data()
                 .iter()
                 .enumerate()
@@ -169,53 +150,109 @@ impl AudioPlot {
 
         Self {
             points: points,
-            name: name
+            name: name,
+            fft: fft
         }
     }
+}
+
+struct FrequencyPlot {
+    max_pts: usize,
+    lines: Vec<AudioPlot>,
+    normalized: bool,
+    log_scale: bool,
+    data_aspect_fft: f32
 }
 
 impl Default for FrequencyPlot {
     fn default() -> Self {
         Self {
-            device: Enum::default(),
             max_pts: 10_000,
-            lines: Vec::default()
+            lines: Vec::default(),
+            normalized: false,
+            log_scale: false,
+            data_aspect_fft: 0.1
         }
     }
 }
 
 impl FrequencyPlot {
-    fn pure_tone_fn() -> Line {
-        let values = PlotPoints::from_explicit_callback(
-            move |x| {
-                x.sin()
-            },
-            0.0..=1.0,
-            100
-        );
-        Line::new(values)
-    }
-
     pub fn add(&mut self, audio: Audio<i32>, name: &str) {
         self.lines.push(AudioPlot::new(audio, String::from(name)));
     }
 
     fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
-        let color = if ui.visuals().dark_mode {
-            Color32::from_additive_luminance(196)
-        } else {
-            Color32::from_black_alpha(240)
-        };
+        ui.horizontal(|ui| {
+            ui.checkbox(&mut self.normalized, "Normalize");
+            ui.checkbox(&mut self.log_scale, "FFT Log Scale (Y)");
+            ui.add(
+                egui::DragValue::new(&mut self.data_aspect_fft)
+                    .speed(0.1)
+                    .clamp_range(0.01..=1.5)
+                    .prefix("aspect: ")
+            )
+        });
+        ui.vertical(|ui| {
+            let plot_height = 0.7 * ui.available_size().y;
 
-        let _notes = super::notes();
+            let step = 100;
 
-        Plot::new("freq_plot")
-            .show(ui, |plot_ui| {
-                self.lines.iter().for_each(|line| {
-                    let pts = PlotPoints::new(line.points.iter().step_by(100).map(|&xy| [xy[0], xy[1]]).collect());
-                    plot_ui.line(Line::new(pts));
+            Plot::new("fft_plot")
+                .height(plot_height)
+                .data_aspect(self.data_aspect_fft)
+                .show(ui, |plot_ui| {
+                    self.lines.iter().for_each(|line| {
+                        let mut pts: Vec<_> = line
+                            .fft
+                            .iter()
+                            .enumerate()
+                            .step_by(step)
+                            .map(|(i, &y)| [i as f64, y as f64])
+                            .collect();
+
+                        if self.log_scale {
+                            pts
+                                .iter_mut()
+                                .for_each(|xy| xy[1] = xy[1].log10());
+                        }
+
+                        if self.normalized {
+                            // Get the max value of the y-axis
+                            let max_y = pts
+                                .iter()
+                                .fold(
+                                    std::f64::MIN,
+                                    |y_max, xy| y_max.max(xy[1])
+                                );
+
+                            // Normalize all y-axis elements with the max value
+                            pts
+                                .iter_mut()
+                                .for_each(|xy| xy[1] /= max_y);
+                        }
+
+                        let pts = PlotPoints::new(pts);
+                        plot_ui.line(Line::new(pts));
+                    });
                 });
-            })
-            .response
+
+            ui.separator();
+
+            Plot::new("freq_plot")
+                .data_aspect(1.0)
+                .show(ui, |plot_ui| {
+                    self.lines.iter().for_each(|line| {
+                        let pts = line
+                            .points
+                            .iter()
+                            .step_by(100)
+                            .map(|&xy| [xy[0], xy[1]])
+                            .collect();
+                        let pts = PlotPoints::new(pts);
+                        plot_ui.line(Line::new(pts));
+                    });
+                });
+        })
+        .response
     }
 }

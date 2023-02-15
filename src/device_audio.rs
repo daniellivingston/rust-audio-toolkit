@@ -1,4 +1,7 @@
+use num_traits::{FromPrimitive, cast};
 use rasciigraph; // temporary
+
+use rustfft::{FftPlanner, num_complex::Complex};
 
 use cpal::{
     platform::HostId,
@@ -31,7 +34,7 @@ pub struct Audio<T> {
     channels: cpal::ChannelCount,
 }
 
-impl<T> Audio<T> {
+impl<T: FromPrimitive + num_traits::NumCast + Copy> Audio<T> {
     pub fn new(
         data: Vec<T>,
         duration: std::time::Duration,
@@ -48,6 +51,26 @@ impl<T> Audio<T> {
 
     pub fn data(&self) -> &Vec<T> {
         &self.raw_data
+    }
+
+    /// Compute the Fast-Fourier Transform (FFT) of the audio data.
+    /// Method taken from Z. Siciarz: <https://zsiciarz.github.io/24daysofrust/book/vol2/day2.html>
+    pub fn fft(&self) -> Vec<f32> {
+        let num_samples = self.raw_data.len();
+
+        let fft = FftPlanner::new().plan_fft_forward(num_samples);
+
+        let mut signal = self.data()
+            .iter()
+            .map(|x| Complex{ re: cast::<T, f32>(*x).unwrap(), im: 0.0f32 })
+            .collect::<Vec<_>>();
+
+        fft.process(&mut signal);
+
+        signal.iter()
+            //.take(num_samples / 2)
+            .map(|x| x.norm())
+            .collect()
     }
 
     pub fn duration(&self) -> &std::time::Duration {

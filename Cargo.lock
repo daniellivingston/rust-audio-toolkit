@@ -2105,10 +2105,12 @@ dependencies = [
  "flate2",
  "hound",
  "log",
+ "num-traits",
  "pitch-detection",
  "pretty_env_logger",
  "rasciigraph",
  "rfd",
+ "rustfft",
  "serde",
  "tracing-subscriber",
 ]
