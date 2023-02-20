@@ -4,6 +4,9 @@
 
 *Rust Audio Toolkit* (RAT) is a high-performance, low-latency library for advanced audio processing and analysis.
 
+> **Note**
+> The below text is outdated and must be updated.
+
 ## Demo
 
 To test out the functionality of RAT in a GUI application, run
