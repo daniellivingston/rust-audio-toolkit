@@ -1,5 +1,4 @@
 use num_traits::{FromPrimitive, cast};
-use rasciigraph; // temporary
 
 use rustfft::{FftPlanner, num_complex::Complex};
 
@@ -11,19 +10,6 @@ use log::info;
 use pitch_detection::{float::Float, Pitch};
 use std::sync::{Arc, Mutex};
 use hound;
-
-#[allow(dead_code)]
-fn graph(data: &Vec<f64>, caption: String) {
-    println!("{}",
-        rasciigraph::plot(
-            data.clone(),
-            rasciigraph::Config::default()
-                .with_offset(10)
-                .with_height(10)
-                .with_caption(caption)
-        )
-    );
-}
 
 #[allow(unused)]
 #[derive(Debug)]

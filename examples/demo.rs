@@ -1,3 +1,5 @@
+use egui;
+
 use rta::device_audio::Audio;
 
 /// Peristent app state.
