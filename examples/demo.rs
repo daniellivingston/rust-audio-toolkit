@@ -7,6 +7,7 @@ use rta::device_audio::Audio;
 pub struct State {
 }
 
+#[allow(dead_code)]
 pub struct App {
     state: State,
     frequency_plot: FrequencyPlot,
