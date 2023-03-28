@@ -1,97 +1,15 @@
-# RTA
+# RAT: The Rust Audio Toolkit
 
-#### *Real-time Audio: Cross-platform Rust dynamic audio project*
+[![CI](https://github.com/daniellivingston/rust-audio-toolkit/actions/workflows/rust.yml/badge.svg)](https://github.com/daniellivingston/realtime-audio-rs/actions/workflows/rust.yml)
 
-[![Build Status](https://github.com/daniellivingston/realtime-audio-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/daniellivingston/realtime-audio-rs/actions/workflows/rust.yml)
+*Rust Audio Toolkit* (RAT) is a high-performance, low-latency library for advanced audio processing and analysis.
 
-This project is an attempt to build a high-performance, high-quality music practicing tool.
+## Demo
 
-## Usage
-
-### PSARC Parsing
-
-#### Print summary of PSARC file
+To test out the functionality of RAT in a GUI application, run:
 
 ```sh
-./target/debug/rta read --summary ../../bin/psarc/dlc/karmapolice_m.psarc
-# -or- #
-cargo run -- read --summary ./bin/psarc/dlc/karmapolice_m.psarc
+cargo run --example demo
 ```
 
-#### Analyze WAVE file
-
-```sh
-./target/debug/rta read --analyze bin/wav/c3-major-scale-piano.wav
-# -or- #
-cargo run -- read --analyze bin/wav/c3-major-scale-piano.wav
-```
-
-### Audio Devices
-
-### Realtime Device Experiment
-
-```sh
-./target/debug/rta device
-# -or- #
-cargo run -- device
-```
-
-#### List available audio devices
-
-```sh
-./target/debug/rta device --list
-# -or- #
-cargo run -- device --list
-```
-
-## Compiling
-
-You will need to [download the Rust compiler and toolchain](https://www.rust-lang.org/tools/install).
-
-The entire project is compiled with:
-
-```sh
-cargo build
-```
-
-Binaries will be under the generated `target/` folder.
-
-```sh
-$ cargo build
-  Finished dev [unoptimized + debuginfo] target(s) in 0.05s
-
-$ cd target/debug/
-$ ./rta --help
-```
-
-## Documentation
-
-- Developer documentation: [RTA Wiki](https://github.com/daniellivingston/realtime-audio-rs/wiki)
-
-## Release Milestones
-
-- **v1.0.0: Public release**
-  - Audio format parsing:
-    - PSARC (PlayStation Archive; for Rocksmith 2014 support)
-    - GuitarPro 5 (`.gp5`)
-  - Audio device in & out:
-    - Support low-latency audio pipeline: microphone -> FFT -> guitarFX -> output speaker
-    - Implement music feature extraction using FFT
-    - Implement plug-in system for varying guitar / amp / vocal / etc. live effects
-  - 3D Graphics Frontend
-    - Support for audio-synced 3D rendering of musical notes
-  - (todo...fill in more)
-
-### Progress Tracker
-
-- [ ] **v0.3.0:**
-  - [ ] Implementation of music feature extraction algorithm
-  - [ ] Fully-featured PSARC file parsing
-  - [x] Implement initial pass at music feature extraction
-  - [ ] Deconstruct initial `manifest.ini` file from PSARC
-- [x] **v0.2.0: Skeleton file parsing & audio analysis**
-  - [x] Unified CLI client interface
-  - [x] Primitive logging support
-  - [x] Supports audio input capture & audio output playback
-  - [x] PSARC header & TOC table parsing
-- [x] **v0.1.0: Initial version**
+This builds and launches a simple `egui` application, which demos most of RAT's functionality.

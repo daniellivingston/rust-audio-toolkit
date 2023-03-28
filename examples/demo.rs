@@ -1,9 +1,6 @@
-use egui::{
-    Color32, Frame, Pos2, pos2
-};
-use rasciigraph::plot;
+use egui;
 
-use crate::device_audio::{Audio, read_wav};
+use rta::device_audio::Audio;
 
 /// Peristent app state.
 #[derive(Default)]
@@ -12,6 +9,7 @@ use crate::device_audio::{Audio, read_wav};
 pub struct State {
 }
 
+#[allow(dead_code)]
 pub struct App {
     state: State,
     frequency_plot: FrequencyPlot,
@@ -255,4 +253,13 @@ impl FrequencyPlot {
         })
         .response
     }
+}
+
+// ----------------------------------------------------------------------------
+
+fn main() {
+    let options = eframe::NativeOptions::default();
+    eframe::run_native("RTA",
+        options,
+        Box::new(|cc| Box::new(App::new(cc))));
 }
