@@ -29,6 +29,7 @@ log = "0.4"
 num-traits = "0.2.15"
 
 [dev-dependencies]
+aubio = { version = "0.2.1", features = ["bindgen"] }
 egui = "0.20.0"
 eframe = { version = "0.20.0", default-features = false, features = [
     "default_fonts", # Embed the default egui fonts.
