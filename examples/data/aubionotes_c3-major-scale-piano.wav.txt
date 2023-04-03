@@ -1,0 +1,14 @@
+using source: c3-major-scale-piano.wav at 44100Hz
+onset method: default, buffer_size: 512, hop_size: 256, threshold: 0.000000
+pitch method: default, buffer_size: 2048, hop_size: 256, tolerance: 0.000000
+read 9.95s (438820 samples in 1715 blocks of 256) from c3-major-scale-piano.wav at 44100Hz
+0.539864
+48.000000	0.539864	1.172608
+50.000000	1.538322	2.281361
+52.000000	2.536780	3.291429
+53.000000	3.541043	4.266667
+55.000000	4.539501	5.247710
+57.000000	5.537959	6.228753
+59.000000	6.536417	7.000816
+60.000000	7.540680	7.813515
+9.955556
