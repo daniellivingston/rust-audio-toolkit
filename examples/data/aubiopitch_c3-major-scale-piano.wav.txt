@@ -1664,8 +1664,7 @@ pitch method: default, pitch unit: default, buffer_size: 2048, hop_size: 256, to
 9.642086 0.000000
 9.647891 0.000000
 9.653696 0.000000
-9.659501 0.0read 9.95s (438820 samples in 1715 blocks of 256) from c3-major-scale-piano.wav at 44100Hz
-00000
+9.659501 0.000000
 9.665306 0.000000
 9.671111 0.000000
 9.676916 0.000000

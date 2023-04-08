@@ -5,8 +5,7 @@
  */
 
 use hound::{WavReader, Error};
-use aubio::PitchMode;
-use aubio::{Pitch, Notes};
+use aubio::Notes;
 
 fn process(samples: Vec<f32>, spec: &hound::WavSpec) {
     let buff_size = 4096;
