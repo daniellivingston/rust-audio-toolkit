@@ -14,6 +14,17 @@ fn norm(samples: &mut [f32]) {
     }
 }
 
+fn test_output() {
+    let data_str = include_str!("data/c3-major-scale-piano.freq.txt");
+    let data = data_str
+        .split('\n')
+        .collect::<Vec<&str>>()
+        .iter()
+        .for_each(|s| {
+            println!("{}", s)
+        });
+}
+
 fn process(samples: Vec<f32>, spec: &hound::WavSpec) {
     let buff_size = 2048;
     let hop_size = 256;
@@ -72,5 +83,5 @@ fn read_wav_file(path: &str) -> Result<(), Error> {
 }
 
 fn main() {
-    read_wav_file("examples/data/C_Major.wav").unwrap();
+    read_wav_file("examples/data/c3-major-scale-piano.wav").unwrap();
 }
