@@ -73,7 +73,7 @@ fn read_wav_file(path: &str) -> Result<(), Error> {
     let mut s2: Vec<f32> = samples.iter().map(|s| *s as f32).collect();
 
     // Normalize
-    norm(s2.as_mut_slice());
+    // norm(s2.as_mut_slice());
 
     println!("{} vs. {}", samples[0], s2[0]);
 
