@@ -51,11 +51,12 @@ def play_midi(filename: str):
 
 def gen_notes(filename: str, samplerate: int = None):
     downsample = 1
+
     if samplerate is None:
         samplerate = 44100 // downsample
 
     win_s = 512 // downsample # fft size
-    hop_s = 256  // downsample # hop size
+    hop_s = 256 // downsample # hop size
 
     s = aubio.source(filename, samplerate, hop_s)
     print(f"{s}")

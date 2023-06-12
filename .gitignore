@@ -1,8 +1,10 @@
 # Developer / private / internal
 dev/
+__pycache__/
 
 # Build files
 target/
+*.mid
 
 # Editor files
 *.swp

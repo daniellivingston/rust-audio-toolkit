@@ -7,8 +7,11 @@ def _init_maps():
     notes = _get_notes()
     for note in notes:
         s, i = note
-        _MAP_INT_TO_STR[i] = s
         _MAP_STR_TO_INT[s] = i
+
+        if i in _MAP_INT_TO_STR:
+            s = _MAP_INT_TO_STR[i] + ", " + s
+        _MAP_INT_TO_STR[i] = s
 
 def _get_notes():
     return _NOTES
