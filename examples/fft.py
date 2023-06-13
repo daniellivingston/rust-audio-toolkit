@@ -37,39 +37,6 @@ def freq_to_note(freq):
 
     return note, octave
 
-class Note:
-    def __init__(self, t, n):
-        self.t = t
-        self.n = (n[0], n[1], n[2])
-
-        self.note = n[0]
-        self.velocity = n[1]
-        self.__idk = n[2]
-
-    def __str__(self):
-        note_str = ' '.join(["%.2f" % i for i in self.n])
-        return "%.6f" % self.t + f": {note_str}"
-
-    def __repr__(self):
-        return str(self)
-
-def play_midi(filename: str):
-    portname = None
-
-    with mido.open_output(portname) as output:
-        try:
-            midifile = MidiFile(filename)
-            t0 = time.time()
-            for message in midifile.play():
-                print(message)
-                output.send(message)
-            print('play time: {:.2f} s (expected {:.2f})'.format(
-                time.time() - t0, midifile.length
-            ))
-        except KeyboardInterrupt:
-            print()
-            output.reset()
-
 def gen_notes(filename: str, samplerate: int = None):
     downsample = 1
 
@@ -178,8 +145,26 @@ def gen_freqs(filename: str, min_confidence = 0.3):
                               hop_size=hop_s,
                               samplerate=samplerate)
 
+        notes_o = aubio.notes("default",
+                              buf_size=win_s,
+                              hop_size=hop_s,
+                              samplerate=samplerate)
+
         # --- Read samples from file ------------------------------------- #
-        _freqs = []
+        _return = {
+            "metadata": {
+                "name": Path(source.uri).stem,
+                "samplerate": samplerate,
+                "num_samples": 0,
+                "buf_size": win_s,
+                "hop_size": hop_s,
+                "channels": source.channels,
+                "duration": source.duration
+            },
+            "pitch": [],
+            "notes": []
+        }
+
         i = 0
         total_frames = 0
         while True:
@@ -188,32 +173,65 @@ def gen_freqs(filename: str, min_confidence = 0.3):
             if read < hop_s:
                 break
 
+            time = i * hop_s
+
             pitch = pitch_o(samples)
             confidence = pitch_o.get_confidence()
 
             if (confidence > min_confidence):
-                _freqs.append(pitch[0])
-                time = i * hop_s
+                _return["pitch"].append(
+                    ( time, pitch[0] )
+                )
+
+            note = notes_o(samples)
+
+            if (note[0] != 0): # valid note found
+                _return["notes"].append(
+                    ( time, miditofreq(note[0]) )
+                )
 
             i += 1
 
-    return _freqs
+    return _return
 
-freq1 = gen_freqs(WAV_C_MAJOR)
-freq2 = gen_notes(WAV_C_MAJOR)
+def plot_data(data: dict):
+    from matplotlib import pyplot as plt
+    import numpy as np
 
-#upsampling = 100.
-#midi = arange(-10, 148 * upsampling)
-#midi /= upsampling
-#freq = miditofreq(midi)
+    ax = plt.axes()
 
-from matplotlib import pyplot as plt
+    pitch = np.array(data["pitch"])
+    notes = np.array(data["notes"])
 
-ax = plt.axes()
-for freq in (freq1, freq2):
-    ax.semilogy(arange(0, len(freq)), freq, '.')
-    for i, f in enumerate(freq):
-        ax.annotate(freq_to_note(f), (i, f))
-ax.set_xlabel('i')
-ax.set_ylabel('frequency (Hz)')
-plt.show()
+    print(f"Data shape: {pitch.shape=}; {notes.shape=}")
+    
+    ax.semilogy(pitch[:,0], pitch[:,1], '.')
+    ax.semilogy(notes[:,0], notes[:,1], '.')
+
+    for note in notes:
+        t, n = note
+        ax.annotate(freq_to_note(n), (t, n))
+
+    #ax.set_xlim(0, data["metadata"]["duration"])
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Frequency [Hz]")
+    ax.grid(True)
+
+    ax.set_title(data["metadata"]["name"])
+    ax.set_title("channels: {}\nduration: {}\nsamplerate: {}".format(
+            data["metadata"]["channels"],
+            data["metadata"]["duration"],
+            data["metadata"]["samplerate"]
+        ), loc='left')
+    ax.set_title("samples: {}\nhop size: {}\nbuff size: {}".format(
+            data["metadata"]["num_samples"],
+            data["metadata"]["hop_size"],
+            data["metadata"]["buf_size"]
+        ), loc='right')
+
+    plt.show()
+
+
+data = gen_freqs(WAV_C_MAJOR)
+plot_data(data)
+
