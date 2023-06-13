@@ -9,12 +9,30 @@ import aubio
 import mido
 from mido import Message, MetaMessage, MidiFile, MidiTrack, second2tick, bpm2tempo
 from pathlib import Path
+from aubio import miditofreq
+from numpy import arange
 
 sys.path.append(str(Path(__file__).parent))
 from rat_notes import midi_note_to_str
 
+WAV_C_MAJOR = str(Path(__file__).parent / "data" / "C_major.wav")
 WAV_GUITAR = str(Path(__file__).parent / "data" / "guitar_c4_scale.wav")
 WAV_PIANO  = str(Path(__file__).parent / "data" / "c3-major-scale-piano.wav")
+
+import math
+
+def freq_to_note(freq):
+    notes = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
+
+    note_number = 12 * math.log2(freq / 440) + 49
+    note_number = round(note_number)
+
+    note = (note_number - 1 ) % len(notes)
+    note = notes[note]
+
+    octave = (note_number + 8 ) // len(notes)
+
+    return note, octave
 
 class Note:
     def __init__(self, t, n):
@@ -83,6 +101,7 @@ def gen_notes(filename: str, samplerate: int = None):
         return int(second2tick(sec, ticks_per_beat, tempo))
 
     # --- Read samples from file ------------------------------------- #
+    _freqs = []
     last_time = 0
     total_frames = 0 # total number of frames read
     while True:
@@ -112,6 +131,7 @@ def gen_notes(filename: str, samplerate: int = None):
             track.append(msg)
 
             print("%.2f : %s" % (delta, midi_note_to_str(new_note[0])))
+            _freqs.append(miditofreq(new_note[0]))
 
             last_time = frames2tick(total_frames)
 
@@ -120,10 +140,106 @@ def gen_notes(filename: str, samplerate: int = None):
             break
 
     print("Finished reading file:", filename)
-    filename = filename.replace(".wav", ".mid")
-    midi.save(filename)
-    print("Saved MIDI file:", filename)
+    # filename = filename.replace(".wav", ".mid")
+    # midi.save(filename)
+    # print("Saved MIDI file:", filename)
     # play_midi(filename)
+    return _freqs
 
-gen_notes(WAV_GUITAR)
+def gen_freqs(filename: str, samplerate: int = None):
+    downsample = 1
 
+    if samplerate is None:
+        samplerate = 44100 // downsample
+
+    win_s = 512 // downsample # fft size
+    hop_s = 256 // downsample # hop size
+
+    s = aubio.source(filename, samplerate, hop_s)
+    print(f"{s}")
+    samplerate = s.samplerate
+
+    tolerance = 0.8
+
+    notes_o = aubio.notes("default", win_s, hop_s, samplerate)
+
+    # --- Initialize MIDI Track -------------------------------------- #
+    midi = MidiFile()
+    track = MidiTrack()
+    midi.tracks.append(track)
+
+    ticks_per_beat = midi.ticks_per_beat # default: 480
+    bpm = 120 # default midi tempo
+
+    tempo = bpm2tempo(bpm)
+    track.append(MetaMessage('set_tempo', tempo=tempo))
+    track.append(MetaMessage('time_signature', numerator=4, denominator=4))
+
+    def frames2tick(frames, samplerate=samplerate):
+        sec = frames / float(samplerate)
+        return int(second2tick(sec, ticks_per_beat, tempo))
+
+    # --- Read samples from file ------------------------------------- #
+    _freqs = []
+    last_time = 0
+    total_frames = 0 # total number of frames read
+    while True:
+        samples, read = s()
+        new_note = notes_o(samples)
+
+        if (new_note[0] != 0): # valid note found
+            delta = frames2tick(total_frames) - last_time
+
+            # Add 'note_off' to track, if applicable
+            if new_note[2] > 0:
+                msg = Message(
+                    'note_off',
+                    note=int(new_note[2]),
+                    velocity=127,
+                    time=delta
+                )
+                track.append(msg)
+
+            # Add 'note_on' to track
+            msg = Message(
+                'note_on',
+                note=int(new_note[0]),
+                velocity=int(new_note[1]),
+                time=delta
+            )
+            track.append(msg)
+
+            print("%.2f : %s" % (delta, midi_note_to_str(new_note[0])))
+            _freqs.append(miditofreq(new_note[0]))
+
+            last_time = frames2tick(total_frames)
+
+        total_frames += read
+        if read < hop_s:
+            break
+
+    print("Finished reading file:", filename)
+    # filename = filename.replace(".wav", ".mid")
+    # midi.save(filename)
+    # print("Saved MIDI file:", filename)
+    # play_midi(filename)
+    return _freqs
+
+freq1 = gen_freqs(WAV_C_MAJOR)
+freq2 = gen_notes(WAV_C_MAJOR)
+
+#upsampling = 100.
+#midi = arange(-10, 148 * upsampling)
+#midi /= upsampling
+#freq = miditofreq(midi)
+
+from matplotlib import pyplot as plt
+
+ax = plt.axes()
+for freq in (freq1, freq2):
+    ax.semilogy(arange(0, len(freq)), freq, '.')
+    for i, f in enumerate(freq):
+        ax.annotate(freq_to_note(f), (i, f))
+ax.set_xlabel('i')
+ax.set_ylabel('frequency (Hz)')
+plt.show()
